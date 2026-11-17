@@ -11,12 +11,36 @@ private enum Palette {
     static let blue = Color(red: 0.70, green: 0.86, blue: 1.00)
 }
 
+private struct SharedFile: Identifiable {
+    let url: URL
+    var id: URL { url }
+}
+
+private struct TextPreview: Identifiable {
+    let id = UUID()
+    let name: String
+    let content: String
+    let truncated: Bool
+}
+
+private struct RemoteSelection {
+    let name: String
+    let directory: String
+    let isLog: Bool
+}
+
 struct ContentView: View {
     @EnvironmentObject private var model: DropModel
     @State private var isScanning = false
     @State private var isImporting = false
     @State private var isShowingHistory = false
+    @State private var isShowingDownloads = false
+    @State private var sharedFile: SharedFile?
+    @State private var preview: TextPreview?
+    @State private var selectedRemote: RemoteSelection?
+    @State private var selectedTab = 0
     @State private var searchText = ""
+    @State private var logSearch = ""
     @State private var sortLargestFirst = false
 
     var body: some View {
@@ -38,7 +62,7 @@ struct ContentView: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if model.link != nil { sendBar }
+            if model.link != nil && selectedTab == 0 { sendBar }
         }
         .sheet(isPresented: $isScanning) {
             NavigationStack {
@@ -65,8 +89,31 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $isShowingHistory) { transferHistory }
+        .sheet(isPresented: $isShowingDownloads) { savedDownloadsSheet }
+        .sheet(item: $sharedFile) { item in
+            SwitchDropShareSheet(url: item.url)
+        }
+        .sheet(item: $preview) { item in previewSheet(item) }
+        .confirmationDialog(selectedRemote?.name ?? "Switch file",
+                            isPresented: Binding(get: { selectedRemote != nil },
+                                                 set: { if !$0 { selectedRemote = nil } }),
+                            presenting: selectedRemote) { selection in
+            Button(selection.isLog ? "Download log to iPhone" : "Download to iPhone") {
+                download(selection.name, in: selection.directory)
+            }
+            if model.canPreview && (selection.isLog || isTextFile(selection.name)) {
+                Button(selection.isLog ? "Preview log" : "Preview text") {
+                    previewFile(selection.name, in: selection.directory)
+                }
+            }
+        } message: { selection in
+            Text(selection.directory)
+        }
         .task {
-            if model.link != nil { await model.refreshDirectory() }
+            if model.link != nil {
+                await model.refreshCapabilities()
+                await model.refreshDirectory()
+            }
         }
         .onChange(of: model.currentDirectory) { _ in searchText = "" }
     }
@@ -97,6 +144,9 @@ struct ContentView: View {
                 if model.link != nil {
                     Button { Task { await model.refreshDirectory() } } label: {
                         Label("Refresh folder", systemImage: "arrow.clockwise")
+                    }
+                    Button { model.refreshSavedDownloads(); isShowingDownloads = true } label: {
+                        Label("Saved downloads", systemImage: "arrow.down.to.line")
                     }
                     Button { isScanning = true } label: {
                         Label("Pair another Switch", systemImage: "qrcode.viewfinder")
@@ -146,6 +196,14 @@ struct ContentView: View {
             .switchDropGlass(radius: 22, tint: Palette.mint)
             .padding(.horizontal, 22)
 
+            HStack(spacing: 9) {
+                sectionButton("Files", symbol: "folder.fill", tab: 0)
+                sectionButton("Logs", symbol: "waveform.path.ecg.rectangle", tab: 1)
+            }
+            .padding(.horizontal, 22)
+
+            if selectedTab == 0 {
+
             quickPaths.padding(.horizontal, 22)
             breadcrumb.padding(.horizontal, 22)
             searchAndSort.padding(.horizontal, 22)
@@ -174,7 +232,12 @@ struct ContentView: View {
                             }
                             .disabled(model.isLoadingDirectory || model.isBusy)
                         } else {
-                            entryRow(entry)
+                            Button {
+                                selectedRemote = RemoteSelection(name: entry.name,
+                                                                 directory: model.currentDirectory,
+                                                                 isLog: false)
+                            } label: { entryRow(entry) }
+                                .disabled(model.isBusy || !model.canDownload)
                         }
                     }
                     if model.isLoadingDirectory {
@@ -218,7 +281,130 @@ struct ContentView: View {
                 .padding(.bottom, 18)
             }
             .refreshable { await model.refreshDirectory() }
+            } else {
+                logManager
+            }
         }
+    }
+
+    private func sectionButton(_ title: String, symbol: String, tab: Int) -> some View {
+        Button {
+            selectedTab = tab
+            if tab == 1 && model.logResults.isEmpty && !model.isScanningLogs {
+                Task { await model.scanLogs() }
+            }
+        } label: {
+            Label(title, systemImage: symbol)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .frame(maxWidth: .infinity, minHeight: 46)
+                .foregroundStyle(Palette.ink)
+        }
+        .buttonStyle(.plain)
+        .switchDropGlass(radius: 19, tint: selectedTab == tab ? Palette.mint : Palette.lavender,
+                         interactive: true)
+    }
+
+    private var logManager: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 11) {
+                Image(systemName: "doc.text.magnifyingglass")
+                    .font(.system(size: 29)).foregroundStyle(Palette.violet)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Homebrew Log Manager")
+                        .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    Text("Atmosphère crashes, app logs & error reports")
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(Palette.muted)
+                }
+                Spacer()
+                Button {
+                    Task { await model.scanLogs() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .frame(width: 40, height: 40)
+                        .foregroundStyle(Palette.ink)
+                }
+                .disabled(model.isScanningLogs)
+                .accessibilityLabel("Scan logs again")
+            }
+            .padding(16)
+            .switchDropGlass(radius: 22, tint: Palette.lavender)
+
+            HStack(spacing: 9) {
+                if model.isScanningLogs { ProgressView().tint(Palette.violet) }
+                Text(model.logScanNote)
+                    .font(.system(size: 12, design: .rounded))
+                    .lineLimit(2)
+                Spacer()
+            }
+            .foregroundStyle(Palette.ink)
+            .padding(.horizontal, 10)
+
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass").foregroundStyle(Palette.violet)
+                TextField("Filter found logs", text: $logSearch)
+                    .font(.system(size: 14, design: .rounded))
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+            }
+            .padding(.horizontal, 15).frame(height: 46)
+            .switchDropGlass(radius: 18)
+
+            ScrollView {
+                LazyVStack(spacing: 6) {
+                    if model.logResults.isEmpty && !model.isScanningLogs {
+                        VStack(spacing: 12) {
+                            Image(systemName: "doc.text.magnifyingglass")
+                                .font(.system(size: 45)).foregroundStyle(Palette.violet)
+                            Text("No logs found yet")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                            Text("Tap refresh to search common SD folders. You can also browse any folder in Files.")
+                                .font(.system(size: 13, design: .rounded))
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(28)
+                    }
+                    ForEach(model.logResults.filter {
+                        logSearch.isEmpty || $0.path.localizedCaseInsensitiveContains(logSearch)
+                    }) { log in
+                        Button {
+                            selectedRemote = RemoteSelection(name: log.name,
+                                                             directory: log.directory, isLog: true)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "doc.text.fill")
+                                    .font(.system(size: 23)).foregroundStyle(Palette.violet)
+                                    .frame(width: 37)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(log.name)
+                                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                                        .lineLimit(1)
+                                    Text(log.directory)
+                                        .font(.system(size: 11, design: .rounded))
+                                        .lineLimit(1).foregroundStyle(Palette.muted)
+                                }
+                                Spacer(minLength: 4)
+                                Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: log.size),
+                                                               countStyle: .file))
+                                    .font(.system(size: 11, design: .rounded))
+                                    .foregroundStyle(Palette.muted)
+                                Image(systemName: "square.and.arrow.down")
+                                    .foregroundStyle(Palette.violet)
+                            }
+                            .folderRowStyle()
+                        }
+                        .disabled(model.isBusy || !model.canDownload)
+                    }
+                }
+                .padding(.top, 3).padding(.bottom, 20)
+            }
+            Text(model.canDownload ? "Logs may contain private information. Use trusted Wi-Fi only."
+                 : "Update SwitchDrop on your Switch to enable log downloads.")
+                .font(.system(size: 11, design: .rounded))
+                .foregroundStyle(Palette.muted)
+                .multilineTextAlignment(.center)
+        }
+        .foregroundStyle(Palette.ink)
+        .padding(.horizontal, 18)
     }
 
     private var visibleEntries: [SwitchEntry] {
@@ -326,6 +512,10 @@ struct ContentView: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(Palette.ink)
+            } else if model.canDownload {
+                Image(systemName: "square.and.arrow.down")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Palette.violet)
             }
         }
         .folderRowStyle()
@@ -345,6 +535,31 @@ struct ContentView: View {
     private func fileKind(_ name: String) -> String {
         let ext = (name as NSString).pathExtension.uppercased()
         return ext.isEmpty ? "File" : "\(ext) file"
+    }
+
+    private func isTextFile(_ name: String) -> Bool {
+        let ext = (name as NSString).pathExtension.lowercased()
+        return ["txt", "log", "json", "md", "xml", "yaml", "yml", "ini",
+                "cfg", "conf", "crash", "err", "ips", "trace"].contains(ext)
+    }
+
+    private func download(_ name: String, in folder: String) {
+        Task {
+            if let url = await model.downloadFile(name, in: folder) {
+                sharedFile = SharedFile(url: url)
+            }
+        }
+    }
+
+    private func previewFile(_ name: String, in folder: String) {
+        Task {
+            do {
+                let (text, truncated) = try await model.previewFile(name, in: folder)
+                preview = TextPreview(name: name, content: text, truncated: truncated)
+            } catch {
+                model.status = "Preview failed: \(error.localizedDescription)"
+            }
+        }
     }
 
     private var sendBar: some View {
@@ -408,7 +623,7 @@ struct ContentView: View {
             VStack(spacing: 9) {
                 Text("Your Switch. Your files. ✨")
                     .font(.system(size: 25, weight: .heavy, design: .rounded))
-                Text("Scan the QR code on your Switch, then browse its SD card and pick exactly where to send files.")
+                Text("Scan the QR code on your Switch, then browse its SD card to send or download files and grab homebrew logs.")
                     .font(.system(size: 15, design: .rounded))
                     .multilineTextAlignment(.center).foregroundStyle(Palette.muted)
             }
@@ -438,14 +653,15 @@ struct ContentView: View {
                             .font(.system(size: 44)).foregroundStyle(Palette.violet)
                         Text("No transfers yet")
                             .font(.system(size: 21, weight: .bold, design: .rounded))
-                        Text("Successfully sent files will appear here.")
+                        Text("Successful uploads and downloads will appear here.")
                             .font(.subheadline).foregroundStyle(Palette.muted)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List(model.recentTransfers) { transfer in
                         HStack(spacing: 13) {
-                            Image(systemName: icon(for: transfer.name))
+                            Image(systemName: transfer.direction == "received"
+                                  ? "arrow.down.circle.fill" : "arrow.up.circle.fill")
                                 .font(.system(size: 21))
                                 .foregroundStyle(Palette.violet)
                                 .frame(width: 36)
@@ -453,7 +669,7 @@ struct ContentView: View {
                                 Text(transfer.name)
                                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                                     .lineLimit(1)
-                                Text("\(transfer.destination) · \(ByteCountFormatter.string(fromByteCount: transfer.size, countStyle: .file))")
+                                Text("\(transfer.direction == "received" ? "Received from" : "Sent to") \(transfer.destination) · \(ByteCountFormatter.string(fromByteCount: transfer.size, countStyle: .file))")
                                     .font(.system(size: 12, design: .rounded))
                                     .foregroundStyle(Palette.muted)
                                     .lineLimit(1)
@@ -480,6 +696,83 @@ struct ContentView: View {
         }
         .presentationDetents([.medium, .large])
     }
+
+    private var savedDownloadsSheet: some View {
+        NavigationStack {
+            Group {
+                if model.savedDownloads.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "arrow.down.doc")
+                            .font(.system(size: 48)).foregroundStyle(Palette.violet)
+                        Text("No downloaded files yet")
+                            .font(.system(size: 19, weight: .bold, design: .rounded))
+                        Text("Downloaded Switch files are saved in On My iPhone → SwitchDrop → Downloads.")
+                            .font(.subheadline).multilineTextAlignment(.center)
+                    }
+                    .padding(25)
+                } else {
+                    List(model.savedDownloads) { saved in
+                        ShareLink(item: saved.url) {
+                            Label(saved.name, systemImage: icon(for: saved.name))
+                                .font(.system(size: 15, design: .rounded))
+                                .foregroundStyle(Palette.ink)
+                        }
+                        .listRowBackground(Palette.pale.opacity(0.85))
+                    }
+                    .scrollContentBackground(.hidden)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Palette.pale.ignoresSafeArea())
+            .foregroundStyle(Palette.ink)
+            .navigationTitle("Saved downloads")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { isShowingDownloads = false }
+                }
+            }
+        }
+    }
+
+    private func previewSheet(_ item: TextPreview) -> some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    if item.truncated {
+                        Label("Showing the first 64 KB. Download for the full file.",
+                              systemImage: "info.circle")
+                            .font(.system(size: 12, design: .rounded))
+                            .foregroundStyle(Palette.violet)
+                    }
+                    Text(item.content)
+                        .font(.system(size: 12, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(18)
+            }
+            .background(Palette.pale.ignoresSafeArea())
+            .foregroundStyle(Palette.ink)
+            .navigationTitle(item.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { preview = nil }
+                }
+            }
+        }
+    }
+}
+
+private struct SwitchDropShareSheet: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [url], applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 
 private struct SwitchDropGlass: ViewModifier {

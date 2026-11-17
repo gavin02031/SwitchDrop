@@ -28,6 +28,7 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
     entitlements:
       path: SwitchDrop/SwitchDrop.entitlements
       properties:

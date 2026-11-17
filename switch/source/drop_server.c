@@ -23,6 +23,7 @@
 #define PATH_BUFFER 768
 #define DIRECTORY_PAGE_SIZE 120
 #define DIRECTORY_RESPONSE_MAX 131072
+#define PREVIEW_LIMIT 65536
 
 static bool send_all(int fd, const void *bytes, size_t count) {
     const unsigned char *cursor = bytes;
@@ -350,6 +351,86 @@ static void upload(DropServer *s, int fd, const char *name, const char *director
     reply(fd, 201, "Created", "{\"ok\":true}");
 }
 
+// Download only an existing regular file beneath the SD root. The directory
+// resolver rejects symlinks in parent components, and O_NOFOLLOW (where
+// available) rejects a symlink swapped into the final component.
+static void download(DropServer *s, int fd, const char *name,
+                     const char *directory, bool preview) {
+    char folder[PATH_BUFFER], filepath[PATH_BUFFER], header[512];
+    if (!filename_allowed(name) ||
+        !safe_directory(s, directory, folder, sizeof(folder))) {
+        reply(fd, 400, "Bad Request", "{\"error\":\"Invalid SD file path\"}");
+        return;
+    }
+    int length = snprintf(filepath, sizeof(filepath), "%s/%s", folder, name);
+    if (length < 0 || (size_t)length >= sizeof(filepath)) {
+        reply(fd, 400, "Bad Request", "{\"error\":\"File path too long\"}");
+        return;
+    }
+    struct stat before, opened;
+    if (lstat(filepath, &before) != 0 || !S_ISREG(before.st_mode)) {
+        reply(fd, 404, "Not Found", "{\"error\":\"File not found\"}");
+        return;
+    }
+    int flags = O_RDONLY;
+#ifdef O_NOFOLLOW
+    flags |= O_NOFOLLOW;
+#endif
+    int source = open(filepath, flags);
+    if (source < 0) {
+        reply(fd, 403, "Forbidden", "{\"error\":\"Cannot open file\"}");
+        return;
+    }
+    if (fstat(source, &opened) != 0 || !S_ISREG(opened.st_mode) ||
+        opened.st_dev != before.st_dev || opened.st_ino != before.st_ino ||
+        opened.st_size < 0 || (uint64_t)opened.st_size > DROP_MAX_BYTES) {
+        close(source);
+        reply(fd, 403, "Forbidden", "{\"error\":\"Unsafe or oversized file\"}");
+        return;
+    }
+    unsigned long long total = (unsigned long long)opened.st_size;
+    unsigned long long count = preview && total > PREVIEW_LIMIT ? PREVIEW_LIMIT : total;
+    int n = snprintf(header, sizeof(header),
+                     "HTTP/1.1 200 OK\r\n"
+                     "Content-Type: %s\r\n"
+                     "Content-Length: %llu\r\n"
+                     "X-SwitchDrop-Truncated: %s\r\n"
+                     "Cache-Control: no-store\r\nConnection: close\r\n\r\n",
+                     preview ? "text/plain; charset=utf-8" : "application/octet-stream",
+                     count, preview && total > PREVIEW_LIMIT ? "1" : "0");
+    if (n <= 0 || (size_t)n >= sizeof(header) || !send_all(fd, header, (size_t)n)) {
+        close(source);
+        return;
+    }
+    if (!preview) {
+        pthread_mutex_lock(&s->mutex);
+        snprintf(s->last_file, sizeof(s->last_file), "%s", name);
+        s->bytes_received = 0;
+        s->bytes_expected = total;
+        snprintf(s->status, sizeof(s->status), "Sending file to iPhone...");
+        pthread_mutex_unlock(&s->mutex);
+    }
+    bool success = true;
+    unsigned long long sent = 0;
+    unsigned char buffer[BLOCK_SIZE];
+    while (sent < count && atomic_load(&s->running)) {
+        size_t wanted = count - sent < BLOCK_SIZE ? (size_t)(count - sent) : BLOCK_SIZE;
+        ssize_t got = read(source, buffer, wanted);
+        if (got <= 0 || !send_all(fd, buffer, (size_t)got)) {
+            success = false;
+            break;
+        }
+        sent += (unsigned long long)got;
+        if (!preview) {
+            pthread_mutex_lock(&s->mutex);
+            s->bytes_received = sent;
+            pthread_mutex_unlock(&s->mutex);
+        }
+    }
+    if (close(source) != 0 || sent != count) success = false;
+    if (!preview) set_status(s, success ? "File sent to iPhone!" : "Download interrupted");
+}
+
 static void handle_client(DropServer *s, int fd) {
     struct timeval timeout = {.tv_sec = 20, .tv_usec = 0};
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
@@ -366,7 +447,7 @@ static void handle_client(DropServer *s, int fd) {
         return;
     }
     if (strcmp(method, "GET") == 0 && strncmp(path, "/health?", 8) == 0) {
-        reply(fd, 200, "OK", "{\"name\":\"SwitchDrop\",\"protocol\":2}");
+        reply(fd, 200, "OK", "{\"name\":\"SwitchDrop\",\"protocol\":2,\"download\":true,\"preview\":true}");
         return;
     }
     if (strcmp(method, "GET") == 0 && strncmp(path, "/browse?", 8) == 0) {
@@ -388,6 +469,19 @@ static void handle_client(DropServer *s, int fd) {
             offset = (unsigned)parsed;
         }
         browse(s, fd, directory, offset);
+        return;
+    }
+    if (strcmp(method, "GET") == 0 &&
+        (strncmp(path, "/download?", 10) == 0 ||
+         strncmp(path, "/preview?", 9) == 0)) {
+        char filename[128], directory[512] = "/";
+        if (!query_value(path, "name", filename, sizeof(filename)) ||
+            !filename_allowed(filename) ||
+            (strstr(path, "dir=") && !query_value(path, "dir", directory, sizeof(directory)))) {
+            reply(fd, 400, "Bad Request", "{\"error\":\"Invalid file request\"}");
+        } else {
+            download(s, fd, filename, directory, strncmp(path, "/preview?", 9) == 0);
+        }
         return;
     }
     if (strcmp(method, "POST") == 0 && strncmp(path, "/upload?", 8) == 0) {

@@ -12,7 +12,7 @@ BUILD := build
 SOURCES := source vendor
 APP_TITLE := SwitchDrop
 APP_AUTHOR := Gavin / SwitchDrop Contributors
-APP_VERSION := 0.3.0
+APP_VERSION := 0.4.0
 ICON := icon.jpg
 
 ARCH := -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE

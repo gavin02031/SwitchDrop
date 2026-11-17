@@ -106,6 +106,8 @@ enum PairingStore {
 struct SwitchHealth: Decodable {
     let name: String
     let `protocol`: Int
+    let download: Bool?
+    let preview: Bool?
 }
 
 struct SwitchEntry: Decodable, Identifiable {
@@ -123,7 +125,8 @@ struct SwitchDirectory: Decodable {
 }
 
 enum DropTransport {
-    static func verify(_ link: DropLink) async throws {
+    @discardableResult
+    static func verify(_ link: DropLink) async throws -> SwitchHealth {
         var request = URLRequest(url: link.url(path: "/health"))
         request.timeoutInterval = 8
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -131,6 +134,7 @@ enum DropTransport {
               let health = try? JSONDecoder().decode(SwitchHealth.self, from: data),
               health.name == "SwitchDrop", health.`protocol` == 2
         else { throw DropLinkError.incompatibleSwitch }
+        return health
     }
 
     static func browse(_ directory: String, on link: DropLink,
@@ -165,6 +169,55 @@ enum DropTransport {
                           userInfo: [NSLocalizedDescriptionKey: "Switch rejected the file: \(message)"])
         }
     }
+
+    static func receive(filename: String, from directory: String, on link: DropLink,
+                        delegate: URLSessionTaskDelegate? = nil) async throws -> URL {
+        var request = URLRequest(url: link.url(path: "/download", filename: filename,
+                                              directory: directory))
+        request.timeoutInterval = 120
+        let (temporary, response) = try await URLSession.shared.download(for: request,
+                                                                         delegate: delegate)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            let message = (try? String(contentsOf: temporary, encoding: .utf8)) ?? "Download unavailable"
+            throw NSError(domain: "SwitchDrop", code: 4,
+                          userInfo: [NSLocalizedDescriptionKey: message])
+        }
+        guard filename == (filename as NSString).lastPathComponent,
+              filename != ".", filename != "..", !filename.isEmpty else {
+            throw DropLinkError.invalidResponse
+        }
+        let manager = FileManager.default
+        let folder = manager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Downloads", isDirectory: true)
+        try manager.createDirectory(at: folder, withIntermediateDirectories: true)
+        let stem = (filename as NSString).deletingPathExtension
+        let ext = (filename as NSString).pathExtension
+        var target = folder.appendingPathComponent(filename, isDirectory: false)
+        var index = 2
+        while manager.fileExists(atPath: target.path) && index <= 10000 {
+            let suggested = "\(stem) (\(index))" + (ext.isEmpty ? "" : ".\(ext)")
+            target = folder.appendingPathComponent(suggested, isDirectory: false)
+            index += 1
+        }
+        guard !manager.fileExists(atPath: target.path) else { throw DropLinkError.invalidResponse }
+        try manager.moveItem(at: temporary, to: target)
+        return target
+    }
+
+    static func preview(filename: String, in directory: String,
+                        on link: DropLink) async throws -> (text: String, truncated: Bool) {
+        var request = URLRequest(url: link.url(path: "/preview", filename: filename,
+                                              directory: directory))
+        request.timeoutInterval = 20
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            let message = String(data: data, encoding: .utf8) ?? "Preview unavailable"
+            throw NSError(domain: "SwitchDrop", code: 5,
+                          userInfo: [NSLocalizedDescriptionKey: message])
+        }
+        return (String(decoding: data, as: UTF8.self),
+                http.value(forHTTPHeaderField: "X-SwitchDrop-Truncated") == "1")
+    }
 }
 
 final class UploadProgress: NSObject, URLSessionTaskDelegate {
@@ -180,4 +233,22 @@ final class UploadProgress: NSObject, URLSessionTaskDelegate {
         guard totalBytesExpectedToSend > 0 else { return }
         changed(Double(totalBytesSent) / Double(totalBytesExpectedToSend))
     }
+}
+
+final class DownloadProgress: NSObject, URLSessionDownloadDelegate {
+    var changed: @Sendable (Double) -> Void
+
+    init(changed: @escaping @Sendable (Double) -> Void) {
+        self.changed = changed
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
+                    didWriteData bytesWritten: Int64, totalBytesWritten: Int64,
+                    totalBytesExpectedToWrite: Int64) {
+        guard totalBytesExpectedToWrite > 0 else { return }
+        changed(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
+                    didFinishDownloadingTo location: URL) {}
 }

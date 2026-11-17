@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static char response_body[8192];
+static char response_body[131072];
 
 static int send_request(const char *request, const char *body, size_t bodylen) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -50,6 +50,8 @@ int main(void) {
              "GET /health?t=%s HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n", token);
     assert(send_request(request, NULL, 0) == 200);
     assert(strstr(response_body, "\"protocol\":2"));
+    assert(strstr(response_body, "\"download\":true"));
+    assert(strstr(response_body, "\"preview\":true"));
     assert(send_request("GET /health?t=wrong HTTP/1.1\r\n\r\n", NULL, 0) == 403);
     snprintf(request, sizeof(request),
              "GET /browse?t=%s&dir=%%2F HTTP/1.1\r\n\r\n", token);
@@ -97,7 +99,53 @@ int main(void) {
     snprintf(request, sizeof(request),
              "POST /upload?t=%s&dir=%%2F&name=empty.txt HTTP/1.1\r\nContent-Length: 0\r\n\r\n", token);
     assert(send_request(request, NULL, 0) == 413);
+
+    // Download and preview require the pairing token, must stay inside the
+    // SD root and must never follow a symlink into another filesystem path.
+    snprintf(request, sizeof(request),
+             "GET /download?t=%s&dir=%%2F&name=test.txt HTTP/1.1\r\n\r\n", token);
+    assert(send_request(request, NULL, 0) == 200);
+    assert(strstr(response_body, "Content-Type: application/octet-stream"));
+    assert(strstr(response_body, "Content-Length: 5\r\n"));
+    char *payload = strstr(response_body, "\r\n\r\n");
+    assert(payload && strcmp(payload + 4, "hello") == 0);
+    snprintf(request, sizeof(request),
+             "GET /preview?t=%s&dir=%%2FMods&name=inside.txt HTTP/1.1\r\n\r\n", token);
+    assert(send_request(request, NULL, 0) == 200);
+    assert(strstr(response_body, "X-SwitchDrop-Truncated: 0\r\n"));
+    assert(strstr(response_body, "\r\n\r\ninner"));
+    assert(send_request("GET /download?t=wrong&dir=%2F&name=test.txt HTTP/1.1\r\n\r\n", NULL, 0) == 403);
+    snprintf(request, sizeof(request),
+             "GET /download?t=%s&dir=%%2F..%%2Fetc&name=passwd HTTP/1.1\r\n\r\n", token);
+    assert(send_request(request, NULL, 0) == 400);
+    snprintf(request, sizeof(request),
+             "GET /download?t=%s&dir=%%2F&name=link HTTP/1.1\r\n\r\n", token);
+    assert(send_request(request, NULL, 0) == 404);
+    snprintf(request, sizeof(request),
+             "GET /download?t=%s&dir=%%2F&name=missing.txt HTTP/1.1\r\n\r\n", token);
+    assert(send_request(request, NULL, 0) == 404);
+    // A large log preview must be capped, while downloading returns the
+    // original bytes without truncation.
+    snprintf(filename, sizeof(filename), "%s/large.log", folder);
+    FILE *large = fopen(filename, "wb");
+    assert(large);
+    for (int i = 0; i < 80000; ++i) assert(fputc('a', large) != EOF);
+    assert(fclose(large) == 0);
+    snprintf(request, sizeof(request),
+             "GET /preview?t=%s&dir=%%2F&name=large.log HTTP/1.1\r\n\r\n", token);
+    assert(send_request(request, NULL, 0) == 200);
+    assert(strstr(response_body, "Content-Length: 65536\r\n"));
+    assert(strstr(response_body, "X-SwitchDrop-Truncated: 1\r\n"));
+    payload = strstr(response_body, "\r\n\r\n");
+    assert(payload && strlen(payload + 4) == 65536);
+    snprintf(request, sizeof(request),
+             "GET /download?t=%s&dir=%%2F&name=large.log HTTP/1.1\r\n\r\n", token);
+    assert(send_request(request, NULL, 0) == 200);
+    payload = strstr(response_body, "\r\n\r\n");
+    assert(payload && strlen(payload + 4) == 80000);
     drop_server_stop(&server);
+    snprintf(filename, sizeof(filename), "%s/large.log", folder);
+    unlink(filename);
     snprintf(filename, sizeof(filename), "%s/test.txt", folder);
     unlink(filename);
     snprintf(filename, sizeof(filename), "%s/test (2).txt", folder);
