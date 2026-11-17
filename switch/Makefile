@@ -20,7 +20,7 @@ CFLAGS := -O2 -g -Wall -Wextra -std=gnu11 -ffunction-sections $(ARCH)
 CFLAGS += -D__SWITCH__ $(INCLUDE) `sdl2-config --cflags`
 ASFLAGS := -g $(ARCH)
 LDFLAGS := -specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
-LIBS := `sdl2-config --libs` -lnx
+LIBS := `sdl2-config --libs` -lnx -lm
 LIBDIRS := $(LIBNX) $(PORTLIBS)
 
 ifneq ($(BUILD),$(notdir $(CURDIR)))
