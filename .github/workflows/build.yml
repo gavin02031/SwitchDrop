@@ -40,7 +40,8 @@ jobs:
 
   ios:
     name: iPhone IPA (unsigned)
-    runs-on: macos-latest
+    # Intel pool avoids frequent arm64 runner-capacity cancellations.
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
