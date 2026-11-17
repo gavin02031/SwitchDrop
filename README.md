@@ -9,10 +9,11 @@ SwitchDrop is **not Apple AirDrop**. It uses its own QR pairing and authenticate
 1. Open the SwitchDrop homebrew `.nro` on your Switch.
 2. Connect your Switch and iPhone to the same Wi-Fi network. The Switch shows a QR code.
 3. Open SwitchDrop on iPhone and tap **Scan Switch QR code**. Pairing is remembered.
-4. Tap **Send files to Switch** and choose files from Files. Alternatively, tap **Share → SwitchDrop** in iOS apps where the share extension is supported.
-5. Received files go to `sdmc:/switch/switchdrop/inbox/` on the Switch SD card.
+4. Your iPhone opens the **SD Card** browser. Tap folders (for example `switch`, `atmosphere`, or `Music`) to explore their contents. Use the breadcrumb to go back to any parent folder.
+5. Tap **Send files here** and select files in iOS Files. SwitchDrop sends to the directory currently open on your phone — including the SD card root if you choose it.
+6. **Share → SwitchDrop** from other iOS apps sends to the last destination chosen in the main app, when the Share extension is supported by your signing method.
 
-Sending the same filename twice automatically creates `file (2).ext`, so existing files are preserved. Failed uploads remove their partial file. The Switch shows transfer progress and a completed file count. Press **+** to exit the Switch app.
+Sending the same filename twice automatically creates `file (2).ext`, so existing files are preserved. Failed uploads remove their partial file. The Switch shows transfer progress and a completed file count. Press **+** to exit the Switch app. Listings are paged (120 items per page) so very large folders can be browsed using **Load more files**.
 
 ## Installation
 
@@ -69,7 +70,9 @@ cc -std=c11 -O2 -Wall -Wextra -Werror -pedantic -pthread \
 - The QR code contains a random secret; don't share screenshots of it with people you don't trust. To revoke *all* previous pairings, delete `pairing.key` on the SD card while SwitchDrop is closed; the next launch generates a new key.
 - This is plain HTTP **within your local network**, authenticated with the QR secret but **not encrypted**. Only use a trusted Wi-Fi network. For public/hotel Wi-Fi, do not use SwitchDrop yet.
 - Pairing is restricted to private IPv4 LAN addresses and TCP port `38470`; no external web service is involved.
-- Incoming files are stored in a dedicated inbox, not automatically installed or executed. Sending game files does **not** install games.
+- The iPhone browser exposes the **whole SD card (`sdmc:/`)**, including homebrew and Atmosphère directories, but deliberately excludes internal NAND/system partitions. Changing critical files on the SD card can still break your setup, so select destinations carefully and keep backups. SwitchDrop only lists filenames, folder names, types and sizes; it does not download your existing files.
+- Uploads go into your selected SD folder and are never automatically installed or executed. Existing files are never overwritten. Sending game files does **not** install games.
+- The receiver rejects `..` traversal, symlink-based escapes, invalid names and destinations outside the SD card. The local protocol is now version 2: update **both** the iPhone and NRO apps together.
 - Files up to 16 GiB are accepted by the protocol, but SD card filesystems such as FAT32 impose a ~4 GiB per-file limit. Large transfers may fail on FAT32. A partial transfer is removed on failure.
 - iOS file selection and the Share Sheet extension work in the foreground. Background transfers and Windows/Android clients are planned for later.
 
@@ -87,6 +90,6 @@ cc -std=c11 -O2 -Wall -Wextra -Werror -pedantic -pthread \
 
 ## Status
 
-Initial source implementation (v0.1). The portable receiver has a local Linux smoke test. **An actual NRO/IPA build and on-device pairing test are still required** before calling this a working public release.
+Beta 2 source implements SD-card browsing, selectable upload destinations and the refreshed pastel UI on both apps. The portable receiver's Linux smoke tests cover directory listing, uploads, name collisions and traversal/symlink rejection. GitHub Actions compile both binaries. **Hardware pairing and end-to-end transfers remain unverified** until tested on a real Switch and iPhone.
 
 © 2026 Gavin Marler and contributors. MIT licensed. The QR encoder retains the original Project Nayuki MIT copyright notice.

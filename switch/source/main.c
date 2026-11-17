@@ -48,6 +48,21 @@ static void fill(SDL_Renderer *r, int x, int y, int w, int h, SDL_Color color) {
     SDL_RenderFillRect(r, &rect);
 }
 
+static void round_fill(SDL_Renderer *r, int x, int y, int w, int h,
+                       int radius, SDL_Color color) {
+    if (radius > h / 2) radius = h / 2;
+    if (radius > w / 2) radius = w / 2;
+    fill(r, x, y + radius, w, h - radius * 2, color);
+    for (int row = 0; row < radius; row++) {
+        int dy = radius - row;
+        int inset = 0;
+        while (inset < radius && (radius - inset) * (radius - inset) + dy * dy >
+               radius * radius) inset++;
+        fill(r, x + inset, y + row, w - inset * 2, 1, color);
+        fill(r, x + inset, y + h - row - 1, w - inset * 2, 1, color);
+    }
+}
+
 static void label(SDL_Renderer *r, int x, int y, const char *str,
                   int scale, SDL_Color color) {
     SDL_SetRenderDrawColor(r, color.r, color.g, color.b, 255);
@@ -70,7 +85,7 @@ static void label(SDL_Renderer *r, int x, int y, const char *str,
 static void qr_render(SDL_Renderer *r, const uint8_t *qr, int center_x, int center_y) {
     int size = qrcodegen_getSize(qr);
     if (size <= 0) return;
-    const int cell = 8, quiet = 4;
+    const int cell = 7, quiet = 4;
     int start_x = center_x - (size + quiet * 2) * cell / 2;
     int start_y = center_y - (size + quiet * 2) * cell / 2;
     fill(r, start_x, start_y, (size + quiet * 2) * cell,
@@ -111,41 +126,67 @@ static void get_pairing_key(char token[33]) {
 
 static void present(SDL_Renderer *r, const uint8_t *qr, const char *ip, DropServer *s,
                     bool connected) {
-    SDL_Color ink = {45, 49, 78, 255}, faded = {111, 117, 144, 255};
-    SDL_SetRenderDrawColor(r, 246, 243, 253, 255);
+    SDL_Color ink = {46, 41, 75, 255}, faded = {112, 105, 137, 255};
+    SDL_SetRenderDrawColor(r, 248, 243, 255, 255);
     SDL_RenderClear(r);
-    fill(r, 0, 0, WIDTH, 14, (SDL_Color){183, 173, 244, 255});
-    fill(r, 56, 62, 1168, 92, (SDL_Color){232, 228, 252, 255});
-    label(r, 88, 88, "SWITCHDROP", 5, ink);
-    label(r, 870, 100, "LOCAL FILE SHARING", 2, faded);
-    fill(r, 56, 178, 502, 438, (SDL_Color){255, 255, 255, 255});
-    fill(r, 586, 178, 638, 438, (SDL_Color){255, 255, 255, 255});
-    if (connected) {
-        qr_render(r, qr, 308, 380);
-        label(r, 159, 572, "SCAN WITH IPHONE", 3, ink);
-    } else {
-        label(r, 150, 370, "CONNECT TO WIFI", 3, ink);
+    for (int y = 0; y < HEIGHT; y += 6) {
+        float mix = (float)y / HEIGHT;
+        fill(r, 0, y, WIDTH, 6,
+             (SDL_Color){(Uint8)(246 - mix * 19),
+                         (Uint8)(239 + mix * 15),
+                         (Uint8)(253 - mix * 10), 255});
     }
-    label(r, 618, 222, "YOUR SWITCH", 3, faded);
-    label(r, 618, 279, ip, 4, ink);
-    label(r, 618, 352, "SEND FILES TO", 2, faded);
-    label(r, 618, 393, "SD:/SWITCH/SWITCHDROP", 2, ink);
-    label(r, 618, 421, "/INBOX", 2, ink);
+    round_fill(r, 62, 53, 61, 61, 17, (SDL_Color){152, 113, 226, 255});
+    // Two small arrows form the SwitchDrop brand mark.
+    fill(r, 76, 73, 31, 4, (SDL_Color){255, 255, 255, 255});
+    fill(r, 76, 91, 31, 4, (SDL_Color){255, 255, 255, 255});
+    SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+    SDL_RenderDrawLine(r, 102, 65, 112, 75);
+    SDL_RenderDrawLine(r, 112, 75, 102, 85);
+    SDL_RenderDrawLine(r, 82, 83, 72, 93);
+    SDL_RenderDrawLine(r, 72, 93, 82, 103);
+    label(r, 145, 63, "SWITCHDROP", 6, ink);
+    label(r, 151, 122, "READY TO RECEIVE", 2, faded);
+
+    round_fill(r, 61, 180, 510, 449, 27, (SDL_Color){255, 255, 255, 255});
+    round_fill(r, 595, 180, 623, 449, 27, (SDL_Color){255, 255, 255, 255});
+    if (connected) {
+        qr_render(r, qr, 315, 390);
+        label(r, 183, 586, "SCAN WITH IPHONE", 3, ink);
+    } else {
+        label(r, 172, 360, "CONNECT TO WIFI", 3, ink);
+    }
+
+    round_fill(r, 623, 213, 567, 96, 19, (SDL_Color){213, 250, 233, 255});
+    round_fill(r, 641, 235, 54, 50, 14, (SDL_Color){239, 255, 248, 255});
+    label(r, 657, 251, "W", 3, ink);
+    label(r, 713, 237, connected ? "CONNECTED TO WI-FI" : "NOT CONNECTED", 3, ink);
+    label(r, 714, 274, ip, 2, faded);
+
+    round_fill(r, 623, 328, 567, 109, 19, (SDL_Color){244, 242, 252, 255});
+    round_fill(r, 642, 350, 53, 57, 14, (SDL_Color){235, 225, 252, 255});
+    label(r, 655, 367, "SD", 2, ink);
+    label(r, 712, 350, "BROWSE YOUR SD CARD", 3, ink);
+    label(r, 712, 386, "FROM IPHONE", 3, ink);
+
+    round_fill(r, 623, 456, 567, 76, 19, (SDL_Color){238, 230, 253, 255});
     char status[128], filename[128], number[32];
     unsigned files;
     unsigned long long received, expected;
     drop_server_status(s, status, sizeof(status), filename, sizeof(filename),
                        &files, &received, &expected);
-    label(r, 618, 490, status, 2, (SDL_Color){76, 139, 116, 255});
     snprintf(number, sizeof(number), "%u FILES RECEIVED", files);
-    label(r, 618, 526, number, 2, faded);
+    label(r, 650, 479, number, 3, ink);
+    char short_status[45];
+    snprintf(short_status, sizeof(short_status), "%.42s", status);
+    label(r, 646, 557, short_status, 2, (SDL_Color){68, 126, 103, 255});
     if (expected > 0 && received < expected) {
-        fill(r, 618, 567, 500, 14, (SDL_Color){239, 238, 247, 255});
-        fill(r, 618, 567, (int)(500.0 * received / expected), 14,
+        round_fill(r, 646, 592, 502, 13, 6, (SDL_Color){239, 238, 247, 255});
+        fill(r, 646, 592, (int)(502.0 * received / expected), 13,
              (SDL_Color){172, 161, 244, 255});
     }
-    label(r, 70, 662, "SAME WIFI NETWORK REQUIRED", 2, faded);
-    label(r, 1074, 662, "+ EXIT", 2, faded);
+    label(r, 66, 671, "SAME WIFI REQUIRED", 2, faded);
+    label(r, 1011, 671, "+ EXIT", 2, faded);
     SDL_RenderPresent(r);
 }
 
@@ -179,7 +220,7 @@ int main(void) {
                                       qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX,
                                       qrcodegen_Mask_AUTO, true);
     DropServer server;
-    if (!drop_server_start(&server, "sdmc:/switch/switchdrop/inbox", token)) {
+    if (!drop_server_start(&server, "sdmc:", token)) {
         socketExit();
         return 2;
     }

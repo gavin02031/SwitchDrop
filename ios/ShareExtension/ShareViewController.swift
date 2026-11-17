@@ -17,7 +17,7 @@ final class ShareViewController: UIViewController {
         heading.textColor = UIColor(red: 0.18, green: 0.19, blue: 0.32, alpha: 1)
         details.text = PairingStore.load(sharedOnly: true) == nil
             ? "Open SwitchDrop and scan your Switch QR code first."
-            : "Your files will go straight to your paired Switch."
+            : "Destination: SD Card\(PairingStore.loadDestination(sharedOnly: true))\nChange this folder in the SwitchDrop app."
         details.font = .systemFont(ofSize: 15, weight: .medium)
         details.numberOfLines = 0
         details.textColor = UIColor(red: 0.35, green: 0.36, blue: 0.45, alpha: 1)
@@ -64,7 +64,9 @@ final class ShareViewController: UIViewController {
                         DispatchQueue.main.async { self?.progress.progress = Float(fraction) }
                     }
                     try await DropTransport.send(file.url, filename: file.name,
-                                                 to: link, delegate: tracker)
+                                                 to: link,
+                                                 directory: PairingStore.loadDestination(sharedOnly: true),
+                                                 delegate: tracker)
                 }
                 details.text = "Sent successfully!"
                 progress.progress = 1

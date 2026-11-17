@@ -11,6 +11,18 @@ permissions:
   contents: write
 
 jobs:
+  protocol-tests:
+    name: Receiver protocol and path security tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run receiver tests
+        run: |
+          cc -std=c11 -O2 -Wall -Wextra -Werror -pedantic -pthread \
+            switch/source/drop_server.c switch/tests/server_smoke.c \
+            -o /tmp/switchdrop-smoke
+          /tmp/switchdrop-smoke
+
   switch:
     name: Nintendo Switch NRO
     runs-on: ubuntu-latest
@@ -56,7 +68,7 @@ jobs:
   release:
     name: Publish downloadable builds
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [switch, ios]
+    needs: [protocol-tests, switch, ios]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

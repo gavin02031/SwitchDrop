@@ -49,7 +49,8 @@ struct DropLink: Codable, Equatable {
             (numbers[0] == 169 && numbers[1] == 254)
     }
 
-    func url(path: String, filename: String? = nil) -> URL {
+    func url(path: String, filename: String? = nil, directory: String? = nil,
+             offset: Int? = nil) -> URL {
         var url = URLComponents()
         url.scheme = "http"
         url.host = host
@@ -57,6 +58,8 @@ struct DropLink: Codable, Equatable {
         url.path = path
         var items = [URLQueryItem(name: "t", value: token)]
         if let filename { items.append(URLQueryItem(name: "name", value: filename)) }
+        if let directory { items.append(URLQueryItem(name: "dir", value: directory)) }
+        if let offset { items.append(URLQueryItem(name: "offset", value: String(offset))) }
         url.queryItems = items
         return url.url!
     }
@@ -65,6 +68,7 @@ struct DropLink: Codable, Equatable {
 enum PairingStore {
     static let groupID = "group.com.gavin02031.switchdrop"
     private static let key = "pairedSwitch"
+    private static let folderKey = "selectedSwitchFolder"
 
     static func save(_ link: DropLink) {
         guard let bytes = try? JSONEncoder().encode(link) else { return }
@@ -82,12 +86,40 @@ enum PairingStore {
     static func clear() {
         UserDefaults.standard.removeObject(forKey: key)
         UserDefaults(suiteName: groupID)?.removeObject(forKey: key)
+        UserDefaults.standard.removeObject(forKey: folderKey)
+        UserDefaults(suiteName: groupID)?.removeObject(forKey: folderKey)
+    }
+
+    static func saveDestination(_ path: String) {
+        UserDefaults.standard.set(path, forKey: folderKey)
+        UserDefaults(suiteName: groupID)?.set(path, forKey: folderKey)
+    }
+
+    static func loadDestination(sharedOnly: Bool = false) -> String {
+        let stored = UserDefaults(suiteName: groupID)?.string(forKey: folderKey)
+            ?? (sharedOnly ? nil : UserDefaults.standard.string(forKey: folderKey))
+        guard let stored, stored.hasPrefix("/"), !stored.contains("..") else { return "/" }
+        return stored
     }
 }
 
 struct SwitchHealth: Decodable {
     let name: String
     let `protocol`: Int
+}
+
+struct SwitchEntry: Decodable, Identifiable {
+    let name: String
+    let type: String
+    let size: UInt64
+    var id: String { name }
+    var isFolder: Bool { type == "folder" }
+}
+
+struct SwitchDirectory: Decodable {
+    let path: String
+    let items: [SwitchEntry]
+    let nextOffset: Int?
 }
 
 enum DropTransport {
@@ -97,13 +129,31 @@ enum DropTransport {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let status = response as? HTTPURLResponse, status.statusCode == 200,
               let health = try? JSONDecoder().decode(SwitchHealth.self, from: data),
-              health.name == "SwitchDrop", health.`protocol` == 1
+              health.name == "SwitchDrop", health.`protocol` == 2
         else { throw DropLinkError.incompatibleSwitch }
     }
 
+    static func browse(_ directory: String, on link: DropLink,
+                       offset: Int = 0) async throws -> SwitchDirectory {
+        var request = URLRequest(url: link.url(path: "/browse", directory: directory,
+                                               offset: offset))
+        request.timeoutInterval = 15
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            let message = String(data: data, encoding: .utf8) ?? "Folder unavailable"
+            throw NSError(domain: "SwitchDrop", code: 3,
+                          userInfo: [NSLocalizedDescriptionKey: message])
+        }
+        let listing = try JSONDecoder().decode(SwitchDirectory.self, from: data)
+        guard listing.path == directory else { throw DropLinkError.invalidResponse }
+        return listing
+    }
+
     static func send(_ file: URL, filename: String, to link: DropLink,
+                     directory: String = "/",
                      delegate: URLSessionTaskDelegate? = nil) async throws {
-        var request = URLRequest(url: link.url(path: "/upload", filename: filename))
+        var request = URLRequest(url: link.url(path: "/upload", filename: filename,
+                                              directory: directory))
         request.httpMethod = "POST"
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 60
