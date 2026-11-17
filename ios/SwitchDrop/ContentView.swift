@@ -46,11 +46,12 @@ struct ContentView: View {
                 }
             }
         }
-        .fileImporter(isPresented: $isImporting, allowedContentTypes: [.item],
-                      allowsMultipleSelection: true) { result in
-            switch result {
-            case .success(let urls): Task { await model.send(urls) }
-            case .failure(let error): model.status = error.localizedDescription
+        .sheet(isPresented: $isImporting) {
+            ImportCopyPicker { urls in
+                isImporting = false
+                Task { await model.send(urls) }
+            } onCancel: {
+                isImporting = false
             }
         }
         .task {
