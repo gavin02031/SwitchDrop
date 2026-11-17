@@ -13,16 +13,16 @@ final class ShareViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = UIColor(red: 0.97, green: 0.96, blue: 0.99, alpha: 1)
         heading.text = "SwitchDrop ✨"
-        heading.font = .systemFont(ofSize: 28, weight: .heavy, design: .rounded)
+        heading.font = .systemFont(ofSize: 28, weight: .heavy)
         heading.textColor = UIColor(red: 0.18, green: 0.19, blue: 0.32, alpha: 1)
         details.text = PairingStore.load(sharedOnly: true) == nil
             ? "Open SwitchDrop and scan your Switch QR code first."
             : "Your files will go straight to your paired Switch."
-        details.font = .systemFont(ofSize: 15, weight: .medium, design: .rounded)
+        details.font = .systemFont(ofSize: 15, weight: .medium)
         details.numberOfLines = 0
         details.textColor = UIColor(red: 0.35, green: 0.36, blue: 0.45, alpha: 1)
         button.setTitle("Send to Switch", for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 18, weight: .bold, design: .rounded)
+        button.titleLabel?.font = .systemFont(ofSize: 18, weight: .bold)
         button.backgroundColor = UIColor(red: 0.73, green: 0.91, blue: 0.83, alpha: 1)
         button.setTitleColor(UIColor(red: 0.18, green: 0.19, blue: 0.32, alpha: 1), for: .normal)
         button.layer.cornerRadius = 16
