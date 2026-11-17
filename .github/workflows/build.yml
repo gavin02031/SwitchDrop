@@ -40,8 +40,9 @@ jobs:
 
   ios:
     name: iPhone IPA (unsigned)
-    # Intel pool avoids frequent arm64 runner-capacity cancellations.
-    runs-on: macos-15-intel
+    # macOS 26 Intel provides the iOS 26+ Liquid Glass SDK while avoiding
+    # the arm64 pool's frequent runner-capacity cancellations.
+    runs-on: macos-26-intel
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
