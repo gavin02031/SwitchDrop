@@ -31,7 +31,7 @@ Launch it through the Homebrew Menu. For reliable networking, launch Homebrew Me
 
 Download `SwitchDrop-unsigned.ipa` from GitHub Actions or Releases, then **sign it** with your normal iOS sideloading app before installing it. An unsigned IPA cannot be installed directly. The iOS app requests camera and local-network permissions for QR scanning and transfers.
 
-The **Send files here** picker imports a private local copy before uploading, so the transfer does not depend on an open-in-place iCloud URL. If an iCloud Drive file still shows a cloud-download badge and **Open** does nothing, use Files → long-press the file → **Download Now**, or copy it into **On My iPhone** before selecting it.
+The **Send a file here** picker imports a private local copy before uploading, so the transfer does not depend on an open-in-place iCloud URL. Tap one file to import and send it directly; select another file afterward for additional transfers. This avoids the iOS multi-select picker’s **Open** confirmation button, which sometimes fails to respond. If an iCloud Drive file is not available, use Files → long-press the file → **Download Now**, or copy it into **On My iPhone** before selecting it.
 
 The Share Sheet extension uses a shared App Group (`group.com.gavin02031.switchdrop`). Your signing method must preserve/provision the matching App Group entitlement for both app and extension. If your sideloading signer does not support App Groups, use **Send files to Switch** inside the main iPhone app instead. This limitation is due to iOS provisioning, not the Switch.
 

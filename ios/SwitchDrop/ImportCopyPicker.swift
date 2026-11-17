@@ -12,7 +12,10 @@ struct ImportCopyPicker: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item],
                                                     asCopy: true)
-        picker.allowsMultipleSelection = true
+        // Single selection opens immediately when a file is tapped. On some
+        // iOS Files versions, the multi-select picker’s blue "Open" confirmation
+        // button can fail to complete even for local .nro/.ipa documents.
+        picker.allowsMultipleSelection = false
         picker.delegate = context.coordinator
         return picker
     }

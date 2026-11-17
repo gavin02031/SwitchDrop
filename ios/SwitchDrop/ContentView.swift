@@ -262,7 +262,7 @@ struct ContentView: View {
             .background(Palette.lavender.opacity(0.65),
                         in: RoundedRectangle(cornerRadius: 18))
             Button { isImporting = true } label: {
-                Label(model.isBusy ? "Sending..." : "Send files here",
+                Label(model.isBusy ? "Sending..." : "Send a file here",
                       systemImage: "square.and.arrow.up")
                     .font(.system(size: 17, weight: .bold, design: .rounded))
                     .frame(maxWidth: .infinity).padding(.vertical, 17)
