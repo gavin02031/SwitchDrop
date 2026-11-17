@@ -1,6 +1,14 @@
 import Foundation
 import Combine
 
+struct TransferRecord: Identifiable, Codable {
+    let id: UUID
+    let name: String
+    let destination: String
+    let size: Int64
+    let date: Date
+}
+
 @MainActor
 final class DropModel: ObservableObject {
     @Published var link = PairingStore.load()
@@ -13,6 +21,12 @@ final class DropModel: ObservableObject {
     @Published var nextOffset: Int?
     @Published var isLoadingDirectory = false
     @Published var directoryError: String?
+    @Published private(set) var recentTransfers: [TransferRecord] = {
+        guard let data = UserDefaults.standard.data(forKey: "switchdrop.transferHistory"),
+              let history = try? JSONDecoder().decode([TransferRecord].self, from: data)
+        else { return [] }
+        return Array(history.prefix(30))
+    }()
 
     func pair(qr: String) async {
         isBusy = true
@@ -115,6 +129,14 @@ final class DropModel: ObservableObject {
                                              to: link, directory: destination, delegate: tracker)
                 progress = 1
                 status = "Sent \(file.lastPathComponent) to \(destination)!"
+                let bytes = Int64((try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+                recentTransfers.insert(TransferRecord(id: UUID(), name: file.lastPathComponent,
+                                                      destination: destination, size: bytes,
+                                                      date: Date()), at: 0)
+                if recentTransfers.count > 30 { recentTransfers.removeLast() }
+                if let data = try? JSONEncoder().encode(recentTransfers) {
+                    UserDefaults.standard.set(data, forKey: "switchdrop.transferHistory")
+                }
             }
             await refreshDirectory()
             if let lastSent { status = "Sent \(lastSent) to \(destination)!" }

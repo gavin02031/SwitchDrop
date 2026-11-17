@@ -10,10 +10,18 @@ SwitchDrop is **not Apple AirDrop**. It uses its own QR pairing and authenticate
 2. Connect your Switch and iPhone to the same Wi-Fi network. The Switch shows a QR code.
 3. Open SwitchDrop on iPhone and tap **Scan Switch QR code**. Pairing is remembered.
 4. Your iPhone opens the **SD Card** browser. Tap folders (for example `switch`, `atmosphere`, or `Music`) to explore their contents. Use the breadcrumb to go back to any parent folder.
-5. Tap **Send files here** and select files in iOS Files. SwitchDrop sends to the directory currently open on your phone — including the SD card root if you choose it.
+5. Tap **Send a file here** and select one file in iOS Files. SwitchDrop sends to the directory currently open on your phone — including the SD card root if you choose it. Repeat for additional files.
 6. **Share → SwitchDrop** from other iOS apps sends to the last destination chosen in the main app, when the Share extension is supported by your signing method.
 
 Sending the same filename twice automatically creates `file (2).ext`, so existing files are preserved. Failed uploads remove their partial file. The Switch shows transfer progress and a completed file count. Press **+** to exit the Switch app. Listings are paged (120 items per page) so very large folders can be browsed using **Load more files**.
+
+### Liquid Glass redesign
+
+- On **iOS 26+**, the app uses SwiftUI's actual Liquid Glass material for rounded cards and controls. On iOS 16–25 it falls back to translucent system materials.
+- The **Switch** uses a matching pastel, translucent SDL design while keeping the pairing QR code fully opaque for scanning.
+- The original SwitchDrop icon was remastered with iridescent lilac and mint glass highlights; the original artwork remains in the source tree.
+- **Quick paths** jump to the SD root, `/switch` (homebrew) and SwitchDrop's inbox. Search filters the current *loaded* folder page; **Load more files** fetches additional entries. Sorting can show the largest files first.
+- **Recent transfers** shows a local history of the last 30 successful uploads (filename, destination, size, date). Only metadata is stored on the iPhone; no files or history are uploaded to cloud services.
 
 ## Installation
 
@@ -33,7 +41,7 @@ Download `SwitchDrop-unsigned.ipa` from GitHub Actions or Releases, then **sign 
 
 The **Send a file here** picker imports a private local copy before uploading, so the transfer does not depend on an open-in-place iCloud URL. Tap one file to import and send it directly; select another file afterward for additional transfers. This avoids the iOS multi-select picker’s **Open** confirmation button, which sometimes fails to respond. If an iCloud Drive file is not available, use Files → long-press the file → **Download Now**, or copy it into **On My iPhone** before selecting it.
 
-The Share Sheet extension uses a shared App Group (`group.com.gavin02031.switchdrop`). Your signing method must preserve/provision the matching App Group entitlement for both app and extension. If your sideloading signer does not support App Groups, use **Send files to Switch** inside the main iPhone app instead. This limitation is due to iOS provisioning, not the Switch.
+The Share Sheet extension uses a shared App Group (`group.com.gavin02031.switchdrop`). Your signing method must preserve/provision the matching App Group entitlement for both app and extension. If your sideloading signer does not support App Groups, use **Send a file here** inside the main iPhone app instead. This limitation is due to iOS provisioning, not the Switch.
 
 ## Build it
 
@@ -92,6 +100,6 @@ cc -std=c11 -O2 -Wall -Wextra -Werror -pedantic -pthread \
 
 ## Status
 
-Beta 2 source implements SD-card browsing, selectable upload destinations and the refreshed pastel UI on both apps. The portable receiver's Linux smoke tests cover directory listing, uploads, name collisions and traversal/symlink rejection. GitHub Actions compile both binaries. **Hardware pairing and end-to-end transfers remain unverified** until tested on a real Switch and iPhone.
+The current source includes the Liquid Glass redesign, quick destinations, local search and transfer history. The portable receiver's Linux smoke tests cover directory listing, uploads, name collisions and traversal/symlink rejection. GitHub Actions compile both binaries. **QR pairing and SD browsing have been tested on a real iPhone and Switch Lite; the latest iOS file-picker fix and end-to-end upload still require retesting on the user's devices.**
 
 © 2026 Gavin Marler and contributors. MIT licensed. The QR encoder retains the original Project Nayuki MIT copyright notice.

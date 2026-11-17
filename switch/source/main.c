@@ -63,6 +63,16 @@ static void round_fill(SDL_Renderer *r, int x, int y, int w, int h,
     }
 }
 
+// A lightweight, translucent glass treatment for Horizon/SDL. The solid QR
+// backing is intentionally kept opaque for reliable scanning.
+static void glass_card(SDL_Renderer *r, int x, int y, int w, int h,
+                       int radius, SDL_Color tint) {
+    round_fill(r, x, y, w, h, radius, (SDL_Color){255, 255, 255, 192});
+    round_fill(r, x + 2, y + 2, w - 4, h - 4, radius - 2, tint);
+    round_fill(r, x + radius, y + 7, w - radius * 2, 3, 1,
+               (SDL_Color){255, 255, 255, 145});
+}
+
 static void label(SDL_Renderer *r, int x, int y, const char *str,
                   int scale, SDL_Color color) {
     SDL_SetRenderDrawColor(r, color.r, color.g, color.b, 255);
@@ -127,29 +137,36 @@ static void get_pairing_key(char token[33]) {
 static void present(SDL_Renderer *r, const uint8_t *qr, const char *ip, DropServer *s,
                     bool connected) {
     SDL_Color ink = {46, 41, 75, 255}, faded = {112, 105, 137, 255};
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(r, 248, 243, 255, 255);
     SDL_RenderClear(r);
     for (int y = 0; y < HEIGHT; y += 6) {
         float mix = (float)y / HEIGHT;
         fill(r, 0, y, WIDTH, 6,
-             (SDL_Color){(Uint8)(246 - mix * 19),
-                         (Uint8)(239 + mix * 15),
-                         (Uint8)(253 - mix * 10), 255});
+             (SDL_Color){(Uint8)(247 - mix * 15),
+                         (Uint8)(240 + mix * 14),
+                         (Uint8)(253 - mix * 11), 255});
     }
-    round_fill(r, 62, 53, 61, 61, 17, (SDL_Color){152, 113, 226, 255});
+    // Iridescent light pools keep the UI alive without moving the QR code.
+    round_fill(r, -95, -124, 440, 440, 220, (SDL_Color){174, 143, 244, 40});
+    round_fill(r, 1015, 489, 430, 430, 215, (SDL_Color){141, 242, 217, 62});
+    round_fill(r, 412, -180, 310, 310, 155, (SDL_Color){183, 217, 255, 48});
+    glass_card(r, 51, 46, 73, 73, 22, (SDL_Color){166, 131, 238, 184});
     // Two small arrows form the SwitchDrop brand mark.
-    fill(r, 76, 73, 31, 4, (SDL_Color){255, 255, 255, 255});
-    fill(r, 76, 91, 31, 4, (SDL_Color){255, 255, 255, 255});
+    fill(r, 72, 69, 33, 4, (SDL_Color){255, 255, 255, 255});
+    fill(r, 72, 91, 33, 4, (SDL_Color){255, 255, 255, 255});
     SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
-    SDL_RenderDrawLine(r, 102, 65, 112, 75);
-    SDL_RenderDrawLine(r, 112, 75, 102, 85);
-    SDL_RenderDrawLine(r, 82, 83, 72, 93);
-    SDL_RenderDrawLine(r, 72, 93, 82, 103);
+    SDL_RenderDrawLine(r, 100, 62, 111, 71);
+    SDL_RenderDrawLine(r, 111, 71, 100, 81);
+    SDL_RenderDrawLine(r, 79, 82, 68, 93);
+    SDL_RenderDrawLine(r, 68, 93, 79, 103);
     label(r, 145, 63, "SWITCHDROP", 6, ink);
-    label(r, 151, 122, "READY TO RECEIVE", 2, faded);
+    label(r, 151, 122, "AIR-LIKE SHARING FOR HOMEBREW", 2, faded);
 
-    round_fill(r, 61, 180, 510, 449, 27, (SDL_Color){255, 255, 255, 255});
-    round_fill(r, 595, 180, 623, 449, 27, (SDL_Color){255, 255, 255, 255});
+    glass_card(r, 61, 180, 510, 449, 30,
+               (SDL_Color){248, 248, 255, 209});
+    glass_card(r, 595, 180, 623, 449, 30,
+               (SDL_Color){248, 250, 255, 201});
     if (connected) {
         qr_render(r, qr, 315, 390);
         label(r, 183, 586, "SCAN WITH IPHONE", 3, ink);
@@ -157,19 +174,22 @@ static void present(SDL_Renderer *r, const uint8_t *qr, const char *ip, DropServ
         label(r, 172, 360, "CONNECT TO WIFI", 3, ink);
     }
 
-    round_fill(r, 623, 213, 567, 96, 19, (SDL_Color){213, 250, 233, 255});
-    round_fill(r, 641, 235, 54, 50, 14, (SDL_Color){239, 255, 248, 255});
+    glass_card(r, 623, 213, 567, 96, 21,
+               (SDL_Color){193, 245, 223, 193});
+    round_fill(r, 641, 235, 54, 50, 14, (SDL_Color){240, 255, 248, 201});
     label(r, 657, 251, "W", 3, ink);
     label(r, 713, 237, connected ? "CONNECTED TO WI-FI" : "NOT CONNECTED", 3, ink);
     label(r, 714, 274, ip, 2, faded);
 
-    round_fill(r, 623, 328, 567, 109, 19, (SDL_Color){244, 242, 252, 255});
-    round_fill(r, 642, 350, 53, 57, 14, (SDL_Color){235, 225, 252, 255});
+    glass_card(r, 623, 328, 567, 109, 21,
+               (SDL_Color){230, 220, 251, 174});
+    round_fill(r, 642, 350, 53, 57, 14, (SDL_Color){235, 225, 252, 204});
     label(r, 655, 367, "SD", 2, ink);
     label(r, 712, 350, "BROWSE YOUR SD CARD", 3, ink);
     label(r, 712, 386, "FROM IPHONE", 3, ink);
 
-    round_fill(r, 623, 456, 567, 76, 19, (SDL_Color){238, 230, 253, 255});
+    glass_card(r, 623, 456, 567, 161, 21,
+               (SDL_Color){226, 218, 255, 185});
     char status[128], filename[128], number[32];
     unsigned files;
     unsigned long long received, expected;
@@ -179,13 +199,20 @@ static void present(SDL_Renderer *r, const uint8_t *qr, const char *ip, DropServ
     label(r, 650, 479, number, 3, ink);
     char short_status[45];
     snprintf(short_status, sizeof(short_status), "%.42s", status);
-    label(r, 646, 557, short_status, 2, (SDL_Color){68, 126, 103, 255});
+    label(r, 646, 534, short_status, 2, (SDL_Color){68, 126, 103, 255});
+    if (filename[0]) {
+        char last_file[43];
+        snprintf(last_file, sizeof(last_file), "%.39s", filename);
+        label(r, 646, 563, last_file, 2, faded);
+    }
     if (expected > 0 && received < expected) {
         round_fill(r, 646, 592, 502, 13, 6, (SDL_Color){239, 238, 247, 255});
         fill(r, 646, 592, (int)(502.0 * received / expected), 13,
              (SDL_Color){172, 161, 244, 255});
+    } else if (files > 0) {
+        label(r, 646, 592, "READY FOR MORE FILES", 2, faded);
     }
-    label(r, 66, 671, "SAME WIFI REQUIRED", 2, faded);
+    label(r, 66, 671, "SAME WI-FI  /  KEEP APP OPEN", 2, faded);
     label(r, 1011, 671, "+ EXIT", 2, faded);
     SDL_RenderPresent(r);
 }
