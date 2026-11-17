@@ -101,7 +101,7 @@ struct ContentView: View {
             Button(selection.isLog ? "Download log to iPhone" : "Download to iPhone") {
                 download(selection.name, in: selection.directory)
             }
-            if model.canPreview && (selection.isLog || isTextFile(selection.name)) {
+            if model.canPreview && isTextFile(selection.name) {
                 Button(selection.isLog ? "Preview log" : "Preview text") {
                     previewFile(selection.name, in: selection.directory)
                 }
@@ -141,12 +141,12 @@ struct ContentView: View {
                 .accessibilityLabel("Recent transfers")
             }
             Menu {
+                Button { model.refreshSavedDownloads(); isShowingDownloads = true } label: {
+                    Label("Saved downloads", systemImage: "arrow.down.to.line")
+                }
                 if model.link != nil {
                     Button { Task { await model.refreshDirectory() } } label: {
                         Label("Refresh folder", systemImage: "arrow.clockwise")
-                    }
-                    Button { model.refreshSavedDownloads(); isShowingDownloads = true } label: {
-                        Label("Saved downloads", systemImage: "arrow.down.to.line")
                     }
                     Button { isScanning = true } label: {
                         Label("Pair another Switch", systemImage: "qrcode.viewfinder")
@@ -397,6 +397,14 @@ struct ContentView: View {
                 }
                 .padding(.top, 3).padding(.bottom, 20)
             }
+            if model.isBusy {
+                ProgressView(value: model.progress).tint(Palette.violet)
+                Text("\(Int(model.progress * 100))% transferred")
+                    .font(.system(size: 12, design: .rounded))
+            }
+            Text(model.status)
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .lineLimit(2)
             Text(model.canDownload ? "Logs may contain private information. Use trusted Wi-Fi only."
                  : "Update SwitchDrop on your Switch to enable log downloads.")
                 .font(.system(size: 11, design: .rounded))

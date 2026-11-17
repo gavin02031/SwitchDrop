@@ -171,12 +171,14 @@ enum DropTransport {
     }
 
     static func receive(filename: String, from directory: String, on link: DropLink,
-                        delegate: URLSessionTaskDelegate? = nil) async throws -> URL {
+                        delegate: DownloadProgress) async throws -> URL {
         var request = URLRequest(url: link.url(path: "/download", filename: filename,
                                               directory: directory))
         request.timeoutInterval = 120
-        let (temporary, response) = try await URLSession.shared.download(for: request,
-                                                                         delegate: delegate)
+        // The download delegate moves the temporary file *before* returning
+        // from didFinishDownloadingTo, as required by URLSession.
+        let (temporary, response) = try await delegate.perform(request)
+        defer { try? FileManager.default.removeItem(at: temporary) }
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             let message = (try? String(contentsOf: temporary, encoding: .utf8)) ?? "Download unavailable"
             throw NSError(domain: "SwitchDrop", code: 4,
@@ -237,9 +239,23 @@ final class UploadProgress: NSObject, URLSessionTaskDelegate {
 
 final class DownloadProgress: NSObject, URLSessionDownloadDelegate {
     var changed: @Sendable (Double) -> Void
+    private var session: URLSession?
+    private var continuation: CheckedContinuation<(URL, URLResponse), Error>?
+    private var savedTemporary: URL?
+    private var moveError: Error?
 
     init(changed: @escaping @Sendable (Double) -> Void) {
         self.changed = changed
+    }
+
+    func perform(_ request: URLRequest) async throws -> (URL, URLResponse) {
+        try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+            let session = URLSession(configuration: .default, delegate: self,
+                                     delegateQueue: nil)
+            self.session = session
+            session.downloadTask(with: request).resume()
+        }
     }
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
@@ -250,5 +266,32 @@ final class DownloadProgress: NSObject, URLSessionDownloadDelegate {
     }
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
-                    didFinishDownloadingTo location: URL) {}
+                    didFinishDownloadingTo location: URL) {
+        let permanentTemp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SwitchDrop-\(UUID().uuidString)")
+        do {
+            try FileManager.default.moveItem(at: location, to: permanentTemp)
+            savedTemporary = permanentTemp
+        } catch {
+            moveError = error
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    didCompleteWithError error: Error?) {
+        defer {
+            continuation = nil
+            self.session?.finishTasksAndInvalidate()
+            self.session = nil
+        }
+        guard let continuation else { return }
+        if let error = error ?? moveError {
+            if let savedTemporary { try? FileManager.default.removeItem(at: savedTemporary) }
+            continuation.resume(throwing: error)
+        } else if let url = savedTemporary, let response = task.response {
+            continuation.resume(returning: (url, response))
+        } else {
+            continuation.resume(throwing: DropLinkError.invalidResponse)
+        }
+    }
 }
