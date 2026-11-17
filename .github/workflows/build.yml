@@ -1,0 +1,74 @@
+name: Build SwitchDrop
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  switch:
+    name: Nintendo Switch NRO
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkita64:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SDL2 portlib
+        run: dkp-pacman -Sy --noconfirm --needed switch-sdl2
+      - name: Compile Switch homebrew
+        run: make -C switch -j2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SwitchDrop-NRO
+          path: switch/switchdrop.nro
+          if-no-files-found: error
+
+  ios:
+    name: iPhone IPA (unsigned)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: cd ios && xcodegen generate
+      - name: Compile iPhone app
+        run: |
+          xcodebuild -project ios/SwitchDrop.xcodeproj -scheme SwitchDrop \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath "$PWD/ios/build" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY='' build
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p ios/dist/Payload
+          cp -R ios/build/Build/Products/Release-iphoneos/SwitchDrop.app ios/dist/Payload/
+          cd ios/dist && zip -qr SwitchDrop-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SwitchDrop-IPA
+          path: ios/dist/SwitchDrop-unsigned.ipa
+          if-no-files-found: error
+
+  release:
+    name: Publish downloadable builds
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [switch, ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: SwitchDrop-*
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*.nro
+            dist/*.ipa

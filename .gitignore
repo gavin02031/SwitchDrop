@@ -1,0 +1,16 @@
+.DS_Store
+.build/
+build/
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+ios/SwitchDrop.xcodeproj/
+switch/*.elf
+switch/*.nro
+switch/*.nacp
+switch/*.map
+switch/build/
+ios/dist/
+ios/build/
+*.ipa

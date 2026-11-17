@@ -1,0 +1,74 @@
+name: SwitchDrop
+options:
+  deploymentTarget:
+    iOS: '16.0'
+  xcodeVersion: '16.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    TARGETED_DEVICE_FAMILY: '1'
+    IPHONEOS_DEPLOYMENT_TARGET: '16.0'
+    CODE_SIGN_STYLE: Automatic
+targets:
+  SwitchDrop:
+    type: application
+    platform: iOS
+    sources:
+      - path: SwitchDrop
+      - path: Shared
+    info:
+      path: SwitchDrop/Info.plist
+      properties:
+        CFBundleDisplayName: SwitchDrop
+        UILaunchScreen: {}
+        NSCameraUsageDescription: Scan the pairing QR code displayed on your Switch.
+        NSLocalNetworkUsageDescription: Send files directly to your paired Nintendo Switch over Wi-Fi.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIFileSharingEnabled: true
+    entitlements:
+      path: SwitchDrop/SwitchDrop.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.gavin02031.switchdrop
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gavin02031.switchdrop
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - target: SwitchDropShare
+        embed: true
+  SwitchDropShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+      - path: Shared
+    info:
+      path: ShareExtension/Info.plist
+      properties:
+        CFBundleDisplayName: SwitchDrop
+        NSLocalNetworkUsageDescription: Send shared files to your paired Switch over Wi-Fi.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsFileWithMaxCount: 10
+              NSExtensionActivationSupportsImageWithMaxCount: 10
+              NSExtensionActivationSupportsMovieWithMaxCount: 10
+    entitlements:
+      path: ShareExtension/SwitchDropShare.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.gavin02031.switchdrop
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gavin02031.switchdrop.share
+        GENERATE_INFOPLIST_FILE: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
