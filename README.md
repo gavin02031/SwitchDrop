@@ -9,8 +9,8 @@ SwitchDrop is **not Apple AirDrop**. It uses its own QR pairing and authenticate
 1. Open the SwitchDrop homebrew `.nro` on your Switch.
 2. Connect your Switch and iPhone to the same Wi-Fi network. The Switch shows a QR code.
 3. Open SwitchDrop on iPhone and tap **Scan Switch QR code**. Pairing is remembered.
-4. Your iPhone opens the **SD Card** browser. Tap folders (for example `switch`, `atmosphere`, or `Music`) to explore their contents. Use the breadcrumb to go back to any parent folder.
-5. Tap the compact **Send file** button at the bottom and select one file in iOS Files. SwitchDrop sends to the directory currently open on your phone — including the SD card root if you choose it. Repeat for additional files.
+4. Your iPhone opens the **SD Card** browser. Tap folders (for example `switch`, `atmosphere`, or `Music`) to explore their contents. Use the **back arrow** beside the folder name to go up, or the **four-square Locations menu** to jump to SD Card, Homebrew, or Inbox.
+5. Tap the floating **Upload** button at the bottom and select one file in iOS Files. SwitchDrop sends to the directory currently open on your phone — including the SD card root if you choose it. Repeat for additional files.
 6. Tap the **↓ download arrow at the right edge of any file row** (or tap its filename and choose **Download to iPhone**). SwitchDrop saves it into **On My iPhone → SwitchDrop → Downloads** and opens the iOS share sheet so you can save or send a copy anywhere.
 7. Open the new **Logs** tab to scan common homebrew, Atmosphère crash-report, and error-report directories. Tap a result to download it or preview up to the first 64 KB of readable text. The scan is bounded (maximum 80 folders) and does not search Nintendo game content.
 8. **Share → SwitchDrop** from other iOS apps sends to the last destination chosen in the main app, when the Share extension is supported by your signing method.
@@ -22,9 +22,9 @@ Sending the same filename twice automatically creates `file (2).ext`, so existin
 - On **iOS 26+**, the app uses SwiftUI's actual Liquid Glass material for rounded cards and controls. On iOS 16–25 it falls back to translucent system materials.
 - The **Switch** uses a matching pastel, translucent SDL design while keeping the pairing QR code fully opaque for scanning.
 - The original SwitchDrop icon was remastered with iridescent lilac and mint glass highlights; the original artwork remains in the source tree.
-- **Quick paths** jump to the SD root, `/switch` (homebrew) and SwitchDrop's inbox. Search filters the current *loaded* folder page; **Load more files** fetches additional entries. Sorting can show the largest files first.
+- **Locations menu** jumps to the SD root, `/switch` (homebrew) and SwitchDrop's inbox without taking a full row of screen space. Search filters the current *loaded* folder page; **Load more files** fetches additional entries. Sorting can show the largest files first.
 - **Recent transfers** shows a local history of the last 30 successful uploads and downloads (filename, destination, size, date). Only metadata is stored on the iPhone; no files or history are uploaded to cloud services.
-- **Compact file-first layout:** the connected banner, tabs, shortcuts, breadcrumbs, search, and bottom upload bar take less vertical space so the SD-card listing stays in focus. Individual file and log rows have a dedicated 44-point download arrow.
+- **File-first iOS redesign:** the giant connected banner, shortcut row, breadcrumb card, and bottom destination panel were replaced with a connection indicator in the title bar, native-feeling directory toolbar, Locations menu, and a floating Upload button. The SD-card listing now occupies most of the screen with quieter pastel rows. Individual file and log rows retain dedicated 44-point download arrows.
 
 ### Two-way transfer and Log Manager (next beta)
 
@@ -50,7 +50,7 @@ Launch it through the Homebrew Menu. For reliable networking, launch Homebrew Me
 
 Download `SwitchDrop-unsigned.ipa` from GitHub Actions or Releases, then **sign it** with your normal iOS sideloading app before installing it. An unsigned IPA cannot be installed directly. The iOS app requests camera and local-network permissions for QR scanning and transfers.
 
-The **Send file** picker imports a private local copy before uploading, so the transfer does not depend on an open-in-place iCloud URL. Tap one file to import and send it directly; select another file afterward for additional transfers. This avoids the iOS multi-select picker’s **Open** confirmation button, which sometimes fails to respond. If an iCloud Drive file is not available, use Files → long-press the file → **Download Now**, or copy it into **On My iPhone** before selecting it.
+The **Upload** picker imports a private local copy before uploading, so the transfer does not depend on an open-in-place iCloud URL. Tap one file to import and send it directly; select another file afterward for additional transfers. This avoids the iOS multi-select picker’s **Open** confirmation button, which sometimes fails to respond. If an iCloud Drive file is not available, use Files → long-press the file → **Download Now**, or copy it into **On My iPhone** before selecting it.
 
 **Important for downloads:** update **both** `SwitchDrop-unsigned.ipa` on your iPhone and `switchdrop.nro` on your Switch from the **same new Actions run**. Older receiver builds only supported uploads and will not respond to download requests. If the download arrow reports an outdated receiver, replace `sdmc:/switch/switchdrop/switchdrop.nro`, reopen the homebrew app, and rescan its QR code.
 

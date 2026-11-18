@@ -20,6 +20,8 @@ targets:
       path: SwitchDrop/Info.plist
       properties:
         CFBundleDisplayName: SwitchDrop
+        CFBundleShortVersionString: '0.4.0'
+        CFBundleVersion: '1'
         UILaunchScreen: {}
         NSCameraUsageDescription: Scan the pairing QR code displayed on your Switch.
         NSLocalNetworkUsageDescription: Send files directly to your paired Nintendo Switch over Wi-Fi.
@@ -52,6 +54,8 @@ targets:
       path: ShareExtension/Info.plist
       properties:
         CFBundleDisplayName: SwitchDrop
+        CFBundleShortVersionString: '0.4.0'
+        CFBundleVersion: '1'
         NSLocalNetworkUsageDescription: Send shared files to your paired Switch over Wi-Fi.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
