@@ -38,6 +38,7 @@ struct ContentView: View {
     @State private var sharedFile: SharedFile?
     @State private var preview: TextPreview?
     @State private var selectedRemote: RemoteSelection?
+    @State private var downloadAlertMessage: String?
     @State private var selectedTab = 0
     @State private var searchText = ""
     @State private var logSearch = ""
@@ -94,6 +95,14 @@ struct ContentView: View {
             SwitchDropShareSheet(url: item.url)
         }
         .sheet(item: $preview) { item in previewSheet(item) }
+        .alert("Download unavailable", isPresented: Binding(
+            get: { downloadAlertMessage != nil },
+            set: { if !$0 { downloadAlertMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { downloadAlertMessage = nil }
+        } message: {
+            Text(downloadAlertMessage ?? "Unable to download this file.")
+        }
         .confirmationDialog(selectedRemote?.name ?? "Switch file",
                             isPresented: Binding(get: { selectedRemote != nil },
                                                  set: { if !$0 { selectedRemote = nil } }),
@@ -119,24 +128,27 @@ struct ContentView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 11) {
+        HStack(spacing: 9) {
             Image(systemName: "arrow.left.arrow.right")
-                .font(.system(size: 21, weight: .heavy, design: .rounded))
+                .font(.system(size: 18, weight: .heavy, design: .rounded))
                 .foregroundStyle(Palette.ink)
-                .frame(width: 47, height: 47)
-                .switchDropGlass(radius: 16, tint: Palette.lavender)
+                .frame(width: 38, height: 38)
+                .switchDropGlass(radius: 14, tint: Palette.lavender)
             Text("SwitchDrop")
-                .font(.system(size: 30, weight: .heavy, design: .rounded))
-                .tracking(-1.2)
+                .font(.system(size: 25, weight: .heavy, design: .rounded))
+                .tracking(-0.9)
                 .foregroundStyle(Palette.ink)
-            Spacer()
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .layoutPriority(1)
+            Spacer(minLength: 1)
             if model.link != nil {
                 Button { isShowingHistory = true } label: {
                     Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 19, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(Palette.ink)
-                        .frame(width: 44, height: 44)
-                        .switchDropGlass(radius: 22, interactive: true)
+                        .frame(width: 40, height: 40)
+                        .switchDropGlass(radius: 20, interactive: true)
                 }
                 .accessibilityLabel("Recent transfers")
             }
@@ -161,64 +173,63 @@ struct ContentView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 23, weight: .bold))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(Palette.ink)
-                    .frame(width: 44, height: 44)
-                    .switchDropGlass(radius: 22, interactive: true)
+                    .frame(width: 40, height: 40)
+                    .switchDropGlass(radius: 20, interactive: true)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel("SwitchDrop options")
         }
-        .padding(.horizontal, 22)
-        .padding(.top, 15)
-        .padding(.bottom, 13)
+        .padding(.horizontal, 15)
+        .padding(.top, 5)
+        .padding(.bottom, 7)
     }
 
     private var connectedBrowser: some View {
-        VStack(spacing: 11) {
-            HStack(spacing: 9) {
+        VStack(spacing: 6) {
+            HStack(spacing: 7) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 19)).foregroundStyle(Color(red: 0.24, green: 0.57, blue: 0.42))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Your Switch is connected")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                    Text("Wireless SD card access")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(Palette.muted)
-                }
+                    .font(.system(size: 15)).foregroundStyle(Color(red: 0.24, green: 0.57, blue: 0.42))
+                Text("Switch connected")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                 Spacer()
+                Text("Wireless SD access")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(Palette.muted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 Image(systemName: "wifi")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
             }
             .foregroundStyle(Palette.ink)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .switchDropGlass(radius: 22, tint: Palette.mint)
-            .padding(.horizontal, 22)
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .switchDropGlass(radius: 15, tint: Palette.mint)
+            .padding(.horizontal, 15)
 
-            HStack(spacing: 9) {
+            HStack(spacing: 6) {
                 sectionButton("Files", symbol: "folder.fill", tab: 0)
                 sectionButton("Logs", symbol: "waveform.path.ecg.rectangle", tab: 1)
             }
-            .padding(.horizontal, 22)
+            .padding(.horizontal, 15)
 
             if selectedTab == 0 {
-
-            quickPaths.padding(.horizontal, 22)
-            breadcrumb.padding(.horizontal, 22)
-            searchAndSort.padding(.horizontal, 22)
+                quickPaths.padding(.horizontal, 15)
+                breadcrumb.padding(.horizontal, 15)
+                searchAndSort.padding(.horizontal, 15)
 
             ScrollView {
                 LazyVStack(spacing: 5) {
                     if model.currentDirectory != "/" {
                         Button { Task { await model.goUp() } } label: {
-                            HStack(spacing: 13) {
+                            HStack(spacing: 8) {
                                 Image(systemName: "arrow.uturn.backward")
-                                    .font(.system(size: 19, weight: .semibold))
-                                    .frame(width: 40, height: 40)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .frame(width: 32, height: 32)
                                     .foregroundStyle(Palette.violet)
                                 Text("Parent folder")
-                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
                                 Spacer()
                             }
                             .folderRowStyle()
@@ -228,16 +239,30 @@ struct ContentView: View {
                     ForEach(visibleEntries) { entry in
                         if entry.isFolder {
                             Button { Task { await model.openFolder(entry.name) } } label: {
-                                entryRow(entry)
+                                entryRow(entry).folderRowStyle()
                             }
+                            .buttonStyle(.plain)
                             .disabled(model.isLoadingDirectory || model.isBusy)
                         } else {
-                            Button {
-                                selectedRemote = RemoteSelection(name: entry.name,
-                                                                 directory: model.currentDirectory,
-                                                                 isLog: false)
-                            } label: { entryRow(entry) }
-                                .disabled(model.isBusy || !model.canDownload)
+                            HStack(spacing: 0) {
+                                Button {
+                                    selectedRemote = RemoteSelection(name: entry.name,
+                                                                     directory: model.currentDirectory,
+                                                                     isLog: false)
+                                } label: { entryRow(entry) }
+                                .buttonStyle(.plain)
+                                Button { download(entry.name, in: model.currentDirectory) } label: {
+                                    Image(systemName: "arrow.down.to.line")
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundStyle(Palette.violet)
+                                        .frame(width: 44, height: 44)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Download \(entry.name) to iPhone")
+                            }
+                            .folderRowStyle()
+                            .disabled(model.isBusy)
                         }
                     }
                     if model.isLoadingDirectory {
@@ -254,31 +279,31 @@ struct ContentView: View {
                         }
                         .foregroundStyle(Palette.ink).padding(25)
                     } else if visibleEntries.isEmpty {
-                        VStack(spacing: 9) {
+                        VStack(spacing: 6) {
                             Image(systemName: searchText.isEmpty ? "folder" : "magnifyingglass")
-                                .font(.system(size: 45)).foregroundStyle(Palette.violet)
+                                .font(.system(size: 31)).foregroundStyle(Palette.violet)
                             Text(searchText.isEmpty ? "Empty folder" : "No matching files")
-                                .font(.headline)
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
                             Text(searchText.isEmpty ? "You can still send files here."
                                  : "Try a different name or clear the search.")
-                                .font(.subheadline)
+                                .font(.system(size: 12, design: .rounded))
                         }
                         .foregroundStyle(Palette.ink)
-                        .frame(maxWidth: .infinity).padding(35)
+                        .frame(maxWidth: .infinity).padding(16)
                     }
                     if model.nextOffset != nil {
                         Button("Load more files") { Task { await model.loadMore() } }
                             .font(.system(size: 15, weight: .bold, design: .rounded))
                             .foregroundStyle(Palette.ink)
-                            .padding(17).frame(maxWidth: .infinity)
+                            .padding(11).frame(maxWidth: .infinity)
                             .background(Palette.lavender.opacity(0.7),
                                         in: RoundedRectangle(cornerRadius: 17))
                             .disabled(model.isLoadingDirectory)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 3)
-                .padding(.bottom, 18)
+                .padding(.horizontal, 10)
+                .padding(.top, 1)
+                .padding(.bottom, 10)
             }
             .refreshable { await model.refreshDirectory() }
             } else {
@@ -295,40 +320,35 @@ struct ContentView: View {
             }
         } label: {
             Label(title, systemImage: symbol)
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .frame(maxWidth: .infinity, minHeight: 46)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .frame(maxWidth: .infinity, minHeight: 38)
                 .foregroundStyle(Palette.ink)
         }
         .buttonStyle(.plain)
-        .switchDropGlass(radius: 19, tint: selectedTab == tab ? Palette.mint : Palette.lavender,
+        .switchDropGlass(radius: 15, tint: selectedTab == tab ? Palette.mint : Palette.lavender,
                          interactive: true)
     }
 
     private var logManager: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 11) {
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: "doc.text.magnifyingglass")
-                    .font(.system(size: 29)).foregroundStyle(Palette.violet)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Homebrew Log Manager")
-                        .font(.system(size: 18, weight: .heavy, design: .rounded))
-                    Text("Atmosphère crashes, app logs & error reports")
-                        .font(.system(size: 11, design: .rounded))
-                        .foregroundStyle(Palette.muted)
-                }
+                    .font(.system(size: 18)).foregroundStyle(Palette.violet)
+                Text("Homebrew logs")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
                 Spacer()
                 Button {
                     Task { await model.scanLogs() }
                 } label: {
                     Image(systemName: "arrow.clockwise")
-                        .frame(width: 40, height: 40)
+                        .frame(width: 36, height: 36)
                         .foregroundStyle(Palette.ink)
                 }
                 .disabled(model.isScanningLogs)
                 .accessibilityLabel("Scan logs again")
             }
-            .padding(16)
-            .switchDropGlass(radius: 22, tint: Palette.lavender)
+            .padding(.horizontal, 10)
+            .switchDropGlass(radius: 15, tint: Palette.lavender)
 
             HStack(spacing: 9) {
                 if model.isScanningLogs { ProgressView().tint(Palette.violet) }
@@ -343,11 +363,11 @@ struct ContentView: View {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").foregroundStyle(Palette.violet)
                 TextField("Filter found logs", text: $logSearch)
-                    .font(.system(size: 14, design: .rounded))
+                    .font(.system(size: 13, design: .rounded))
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
             }
-            .padding(.horizontal, 15).frame(height: 46)
-            .switchDropGlass(radius: 18)
+            .padding(.horizontal, 12).frame(height: 38)
+            .switchDropGlass(radius: 15)
 
             ScrollView {
                 LazyVStack(spacing: 6) {
@@ -366,33 +386,42 @@ struct ContentView: View {
                     ForEach(model.logResults.filter {
                         logSearch.isEmpty || $0.path.localizedCaseInsensitiveContains(logSearch)
                     }) { log in
-                        Button {
-                            selectedRemote = RemoteSelection(name: log.name,
-                                                             directory: log.directory, isLog: true)
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "doc.text.fill")
-                                    .font(.system(size: 23)).foregroundStyle(Palette.violet)
-                                    .frame(width: 37)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(log.name)
-                                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                                        .lineLimit(1)
-                                    Text(log.directory)
-                                        .font(.system(size: 11, design: .rounded))
-                                        .lineLimit(1).foregroundStyle(Palette.muted)
+                        HStack(spacing: 0) {
+                            Button {
+                                selectedRemote = RemoteSelection(name: log.name,
+                                                                 directory: log.directory, isLog: true)
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "doc.text.fill")
+                                        .font(.system(size: 19)).foregroundStyle(Palette.violet)
+                                        .frame(width: 30)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(log.name)
+                                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                                            .lineLimit(1)
+                                        Text(log.directory)
+                                            .font(.system(size: 10, design: .rounded))
+                                            .lineLimit(1).foregroundStyle(Palette.muted)
+                                    }
+                                    Spacer(minLength: 4)
+                                    Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: log.size),
+                                                                   countStyle: .file))
+                                        .font(.system(size: 10, design: .rounded))
+                                        .foregroundStyle(Palette.muted)
                                 }
-                                Spacer(minLength: 4)
-                                Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: log.size),
-                                                               countStyle: .file))
-                                    .font(.system(size: 11, design: .rounded))
-                                    .foregroundStyle(Palette.muted)
-                                Image(systemName: "square.and.arrow.down")
-                                    .foregroundStyle(Palette.violet)
                             }
-                            .folderRowStyle()
+                            .buttonStyle(.plain)
+                            Button { download(log.name, in: log.directory) } label: {
+                                Image(systemName: "arrow.down.to.line")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(Palette.violet)
+                                    .frame(width: 44, height: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Download \(log.name) to iPhone")
                         }
-                        .disabled(model.isBusy || !model.canDownload)
+                        .folderRowStyle()
+                        .disabled(model.isBusy)
                     }
                 }
                 .padding(.top, 3).padding(.bottom, 20)
@@ -412,7 +441,7 @@ struct ContentView: View {
                 .multilineTextAlignment(.center)
         }
         .foregroundStyle(Palette.ink)
-        .padding(.horizontal, 18)
+        .padding(.horizontal, 12)
     }
 
     private var visibleEntries: [SwitchEntry] {
@@ -429,7 +458,7 @@ struct ContentView: View {
     }
 
     private var quickPaths: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 5) {
             quickPath("SD Card", symbol: "externaldrive.fill", path: "/")
             quickPath("Homebrew", symbol: "gamecontroller.fill", path: "/switch")
             quickPath("Inbox", symbol: "tray.and.arrow.down.fill", path: "/switch/switchdrop/inbox")
@@ -439,22 +468,22 @@ struct ContentView: View {
     private func quickPath(_ title: String, symbol: String, path: String) -> some View {
         Button { Task { await model.openDirectory(path) } } label: {
             Label(title, systemImage: symbol)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
                 .lineLimit(1).minimumScaleFactor(0.85)
-                .frame(maxWidth: .infinity, minHeight: 43)
+                .frame(maxWidth: .infinity, minHeight: 35)
         }
         .buttonStyle(.plain)
         .foregroundStyle(Palette.ink)
-        .switchDropGlass(radius: 17, tint: model.currentDirectory == path ? Palette.lavender : .white)
+        .switchDropGlass(radius: 14, tint: model.currentDirectory == path ? Palette.lavender : .white)
         .disabled(model.isLoadingDirectory || model.isBusy)
     }
 
     private var searchAndSort: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Palette.violet)
             TextField("Search this folder", text: $searchText)
-                .font(.system(size: 14, design: .rounded))
+                .font(.system(size: 13, design: .rounded))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             if !searchText.isEmpty {
@@ -465,20 +494,20 @@ struct ContentView: View {
             }
             Button { sortLargestFirst.toggle() } label: {
                 Image(systemName: sortLargestFirst ? "arrow.down.circle.fill" : "arrow.up.arrow.down")
-                    .frame(width: 40, height: 40)
+                    .frame(width: 36, height: 36)
                     .foregroundStyle(Palette.ink)
             }
             .accessibilityLabel(sortLargestFirst ? "Sort by name" : "Sort by largest first")
         }
-        .padding(.leading, 15).padding(.trailing, 5)
-        .frame(height: 47)
-        .switchDropGlass(radius: 19)
+        .padding(.leading, 11).padding(.trailing, 4)
+        .frame(height: 38)
+        .switchDropGlass(radius: 15)
     }
 
     private var breadcrumb: some View {
         let parts = model.currentDirectory.split(separator: "/").map(String.init)
         return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 Image(systemName: "house").foregroundStyle(Palette.ink)
                 Button("SD Card") { Task { await model.openDirectory("/") } }
                 ForEach(parts.indices, id: \.self) { index in
@@ -491,27 +520,27 @@ struct ContentView: View {
                     }
                 }
             }
-            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .font(.system(size: 12, weight: .semibold, design: .rounded))
             .foregroundStyle(Palette.ink)
             .buttonStyle(.plain)
-            .padding(.horizontal, 15).padding(.vertical, 14)
+            .padding(.horizontal, 11).padding(.vertical, 10)
         }
-        .switchDropGlass(radius: 18)
+        .switchDropGlass(radius: 15)
     }
 
     private func entryRow(_ entry: SwitchEntry) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 8) {
             Image(systemName: entry.isFolder ? "folder.fill" : icon(for: entry.name))
-                .font(.system(size: entry.isFolder ? 29 : 24))
+                .font(.system(size: entry.isFolder ? 21 : 19))
                 .foregroundStyle(entry.isFolder ? Palette.violet.opacity(0.7) : Palette.muted)
-                .frame(width: 45, height: 45)
-            VStack(alignment: .leading, spacing: 3) {
+                .frame(width: 32, height: 32)
+            VStack(alignment: .leading, spacing: 2) {
                 Text(entry.name)
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
                     .lineLimit(1)
                 if !entry.isFolder {
                     Text("\(ByteCountFormatter.string(fromByteCount: Int64(clamping: entry.size), countStyle: .file)) · \(fileKind(entry.name))")
-                        .font(.system(size: 12, design: .rounded))
+                        .font(.system(size: 11, design: .rounded))
                         .foregroundStyle(Palette.muted)
                 }
             }
@@ -520,13 +549,9 @@ struct ContentView: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(Palette.ink)
-            } else if model.canDownload {
-                Image(systemName: "square.and.arrow.down")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Palette.violet)
             }
         }
-        .folderRowStyle()
+        .frame(minHeight: 38)
     }
 
     private func icon(for name: String) -> String {
@@ -552,9 +577,15 @@ struct ContentView: View {
     }
 
     private func download(_ name: String, in folder: String) {
+        guard model.canDownload else {
+            downloadAlertMessage = "Your Switch is connected, but the receiver is too old to download files. Install the latest switchdrop.nro and the matching iPhone IPA, restart SwitchDrop on the Switch, then pair again."
+            return
+        }
         Task {
             if let url = await model.downloadFile(name, in: folder) {
                 sharedFile = SharedFile(url: url)
+            } else {
+                downloadAlertMessage = model.status
             }
         }
     }
@@ -571,44 +602,46 @@ struct ContentView: View {
     }
 
     private var sendBar: some View {
-        VStack(spacing: 9) {
-            HStack(spacing: 11) {
-                Image(systemName: "folder.fill").foregroundStyle(Palette.violet)
-                Text("Destination: \(model.currentDirectory)")
-                    .lineLimit(1).truncationMode(.middle)
-                Spacer(minLength: 5)
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(Palette.violet)
+        VStack(spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 15)).foregroundStyle(Palette.violet)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("SEND TO")
+                        .font(.system(size: 9, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Palette.muted)
+                    Text(model.currentDirectory)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .lineLimit(1).truncationMode(.middle)
+                }
+                .foregroundStyle(Palette.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Button { isImporting = true } label: {
+                    Label(model.isBusy ? "Sending" : "Send file", systemImage: "square.and.arrow.up")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(Palette.ink)
+                        .frame(width: 119, height: 44)
+                }
+                .buttonStyle(.plain)
+                .switchDropGlass(radius: 15, tint: Palette.mint, interactive: true)
+                .disabled(model.isBusy || model.isLoadingDirectory || model.directoryError != nil)
             }
-            .font(.system(size: 14, weight: .semibold, design: .rounded))
-            .foregroundStyle(Palette.ink)
-            .padding(.horizontal, 17).padding(.vertical, 13)
-            .switchDropGlass(radius: 18, tint: Palette.lavender)
-            Button { isImporting = true } label: {
-                Label(model.isBusy ? "Sending..." : "Send a file here",
-                      systemImage: "square.and.arrow.up")
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .frame(maxWidth: .infinity).padding(.vertical, 17)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(Palette.ink)
-            .background(Palette.mint.opacity(0.50),
-                        in: RoundedRectangle(cornerRadius: 19))
-            .switchDropGlass(radius: 19, tint: Palette.mint, interactive: true)
-            .disabled(model.isBusy || model.isLoadingDirectory || model.directoryError != nil)
+            .padding(.horizontal, 12)
+            .frame(height: 48)
             if model.isBusy {
                 ProgressView(value: model.progress).tint(Palette.violet)
                     .accessibilityLabel("Transfer progress")
-                Text("\(Int(model.progress * 100))% transferred")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Palette.muted)
             }
-            Text(model.status)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .lineLimit(2).foregroundStyle(Palette.muted)
+            if model.status.hasPrefix("Sent ") || model.status.hasPrefix("Saved ") ||
+                model.status.contains("failed:") || model.status.hasPrefix("Couldn't") {
+                Text(model.status)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .lineLimit(1).foregroundStyle(Palette.muted)
+            }
         }
-        .padding(.horizontal, 17).padding(.top, 13).padding(.bottom, 13)
-        .switchDropGlass(radius: 26)
-        .padding(.horizontal, 11).padding(.bottom, 6)
+        .padding(.horizontal, 6).padding(.vertical, 5)
+        .switchDropGlass(radius: 20)
+        .padding(.horizontal, 10).padding(.bottom, 3)
     }
 
     private var pairingWelcome: some View {
@@ -810,9 +843,9 @@ private extension View {
     func folderRowStyle() -> some View {
         self
             .foregroundStyle(Palette.ink)
-            .padding(.horizontal, 15).padding(.vertical, 9)
+            .padding(.horizontal, 10).padding(.vertical, 3)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .switchDropGlass(radius: 17)
-            .contentShape(RoundedRectangle(cornerRadius: 17))
+            .switchDropGlass(radius: 14)
+            .contentShape(RoundedRectangle(cornerRadius: 14))
     }
 }

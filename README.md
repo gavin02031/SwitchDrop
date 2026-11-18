@@ -10,8 +10,8 @@ SwitchDrop is **not Apple AirDrop**. It uses its own QR pairing and authenticate
 2. Connect your Switch and iPhone to the same Wi-Fi network. The Switch shows a QR code.
 3. Open SwitchDrop on iPhone and tap **Scan Switch QR code**. Pairing is remembered.
 4. Your iPhone opens the **SD Card** browser. Tap folders (for example `switch`, `atmosphere`, or `Music`) to explore their contents. Use the breadcrumb to go back to any parent folder.
-5. Tap **Send a file here** and select one file in iOS Files. SwitchDrop sends to the directory currently open on your phone — including the SD card root if you choose it. Repeat for additional files.
-6. Tap an existing **file** in the SD browser and select **Download to iPhone**. SwitchDrop saves it into **On My iPhone → SwitchDrop → Downloads** and opens the iOS share sheet so you can save or send a copy anywhere.
+5. Tap the compact **Send file** button at the bottom and select one file in iOS Files. SwitchDrop sends to the directory currently open on your phone — including the SD card root if you choose it. Repeat for additional files.
+6. Tap the **↓ download arrow at the right edge of any file row** (or tap its filename and choose **Download to iPhone**). SwitchDrop saves it into **On My iPhone → SwitchDrop → Downloads** and opens the iOS share sheet so you can save or send a copy anywhere.
 7. Open the new **Logs** tab to scan common homebrew, Atmosphère crash-report, and error-report directories. Tap a result to download it or preview up to the first 64 KB of readable text. The scan is bounded (maximum 80 folders) and does not search Nintendo game content.
 8. **Share → SwitchDrop** from other iOS apps sends to the last destination chosen in the main app, when the Share extension is supported by your signing method.
 
@@ -24,10 +24,11 @@ Sending the same filename twice automatically creates `file (2).ext`, so existin
 - The original SwitchDrop icon was remastered with iridescent lilac and mint glass highlights; the original artwork remains in the source tree.
 - **Quick paths** jump to the SD root, `/switch` (homebrew) and SwitchDrop's inbox. Search filters the current *loaded* folder page; **Load more files** fetches additional entries. Sorting can show the largest files first.
 - **Recent transfers** shows a local history of the last 30 successful uploads and downloads (filename, destination, size, date). Only metadata is stored on the iPhone; no files or history are uploaded to cloud services.
+- **Compact file-first layout:** the connected banner, tabs, shortcuts, breadcrumbs, search, and bottom upload bar take less vertical space so the SD-card listing stays in focus. Individual file and log rows have a dedicated 44-point download arrow.
 
 ### Two-way transfer and Log Manager (next beta)
 
-- **Download existing Switch files:** open any SD folder and tap a file. The app streams the response to a temporary file, then moves it into its visible `Documents/Downloads` folder, preserving existing downloads by adding a numeric suffix to name collisions.
+- **Download existing Switch files:** open any SD folder and tap the download arrow at the end of the file row. The app streams the response to a temporary file, then moves it into its visible `Documents/Downloads` folder, preserving existing downloads by adding a numeric suffix to name collisions. If the Switch receiver is outdated or the transfer fails, the iPhone displays a specific error alert.
 - **Save / share:** iOS immediately presents the system share sheet after a download, and previously saved files can be reopened from **⋯ → Saved downloads**. The files remain in the iPhone app's Documents directory unless you remove them manually.
 - **Quick log scan:** the **Logs** tab looks in common `atmosphere`, `/switch`, `/config`, and `/logs` subdirectories for log-like filenames. It skips heavy patch/game content and may miss logs in unusual folders. Browse those manually from **Files**.
 - **Safe text previews:** `/preview` returns at most 64 KB (never the entire huge report), and `/download` streams up to 16 GiB per file. Both endpoints use the same QR token and SD-root path restrictions as `/browse` and `/upload`. No internal NAND access or remote uploads of logs are involved.
@@ -49,7 +50,9 @@ Launch it through the Homebrew Menu. For reliable networking, launch Homebrew Me
 
 Download `SwitchDrop-unsigned.ipa` from GitHub Actions or Releases, then **sign it** with your normal iOS sideloading app before installing it. An unsigned IPA cannot be installed directly. The iOS app requests camera and local-network permissions for QR scanning and transfers.
 
-The **Send a file here** picker imports a private local copy before uploading, so the transfer does not depend on an open-in-place iCloud URL. Tap one file to import and send it directly; select another file afterward for additional transfers. This avoids the iOS multi-select picker’s **Open** confirmation button, which sometimes fails to respond. If an iCloud Drive file is not available, use Files → long-press the file → **Download Now**, or copy it into **On My iPhone** before selecting it.
+The **Send file** picker imports a private local copy before uploading, so the transfer does not depend on an open-in-place iCloud URL. Tap one file to import and send it directly; select another file afterward for additional transfers. This avoids the iOS multi-select picker’s **Open** confirmation button, which sometimes fails to respond. If an iCloud Drive file is not available, use Files → long-press the file → **Download Now**, or copy it into **On My iPhone** before selecting it.
+
+**Important for downloads:** update **both** `SwitchDrop-unsigned.ipa` on your iPhone and `switchdrop.nro` on your Switch from the **same new Actions run**. Older receiver builds only supported uploads and will not respond to download requests. If the download arrow reports an outdated receiver, replace `sdmc:/switch/switchdrop/switchdrop.nro`, reopen the homebrew app, and rescan its QR code.
 
 The Share Sheet extension uses a shared App Group (`group.com.gavin02031.switchdrop`). Your signing method must preserve/provision the matching App Group entitlement for both app and extension. If your sideloading signer does not support App Groups, use **Send a file here** inside the main iPhone app instead. This limitation is due to iOS provisioning, not the Switch.
 
